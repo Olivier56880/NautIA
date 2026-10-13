@@ -21,7 +21,7 @@ Ne pas les exécuter en production avant comparaison avec le schéma existant.
 | `nautia_suppliers` | Fournisseurs propres au chantier |
 | `nautia_catalog_items` | Catalogue de chaque fournisseur, référence et unité |
 | `nautia_price_history` | Prix datés, ajoutés sans réécriture de l’historique |
-| `nautia_pdfs` | Métadonnées et échéance des fichiers privés |
+| `nautia_pdfs` | Métadonnées, échéance et réservation de purge des fichiers privés |
 
 Les montants sont des décimaux, jamais des nombres flottants. Convention proposée :
 prix et tarifs hors taxes ; aucune TVA ni conversion monétaire n’est implémentée.
@@ -45,9 +45,12 @@ chevauchement entre périodes d’un même métier n’est pas imposée dans cet
   par les clients. Les PDF et les prix historiques ne sont pas effaçables par eux.
 
 Un utilisateur membre de plusieurs chantiers voit les chantiers qui lui sont
-explicitement attribués. Les propriétaires de la base et la clé `service_role`
-contournent RLS : conserver cette clé uniquement côté serveur. Ne jamais la
-distribuer à un navigateur. Ne pas exposer le schéma `nautia_private` via l’API.
+explicitement attribués. Les propriétaires de la base contournent RLS. Le rôle
+`service_role` n'a aucun droit direct sur les tables NautIA : il peut seulement
+appeler les deux RPC de rétention. Sa clé conserve néanmoins des privilèges de
+plateforme, notamment pour Storage ; elle reste exclusivement dans le runtime de
+l'Edge Function et ne doit jamais être transmise au navigateur ou au cron.
+Ne pas exposer le schéma `nautia_private` via l’API.
 
 La suppression d’un article ayant un historique est bloquée. La suppression d’un
 chantier ayant des métadonnées PDF est également bloquée : un futur flux serveur
@@ -59,6 +62,12 @@ Une suppression de chantier sans PDF efface ses autres données par cascade.
 Le bucket `nautia-pdfs` est privé, limité à 20 Mio par fichier et au MIME
 `application/pdf`. Le MIME ne prouve pas le contenu : vérifier aussi les fichiers
 à l’ingestion côté serveur si nécessaire.
+
+Des policies restrictives protègent la ligne `storage.buckets` elle-même : même
+si une ancienne policy permissive existe, `anon` et `authenticated` ne peuvent
+pas rendre le bucket public, modifier ses limites, le remplacer ou le supprimer.
+Des garde-fous équivalents protègent les objets. Seuls les rôles administratifs
+de la plateforme peuvent modifier la configuration du bucket.
 
 Procédure d’ajout :
 
@@ -80,30 +89,32 @@ les droits changent. Éviter les URL signées pour cette proposition ; si un ser
 en émet, vérifier lui-même les droits et limiter leur durée au temps restant avant
 `expires_at`. Les copies déjà téléchargées ne peuvent pas être révoquées.
 
-### Suppression physique : composant restant à mettre en place
+### Suppression physique automatique préparée
 
-Le SQL seul ne supprime pas les fichiers binaires Supabase Storage. Le fichier
-`03_retention.sql` expose une RPC réservée à `service_role` pour obtenir les PDF
-expirés ; il ne crée pas de tâche planifiée.
+Le SQL seul ne supprime pas les fichiers binaires Supabase Storage. La proposition
+inclut maintenant quatre éléments complémentaires :
 
-Un worker serveur / Edge Function planifié doit :
+1. `03_retention.sql` réserve les documents expirés par lots avec `SKIP LOCKED`.
+   Un lot abandonné redevient disponible après quinze minutes.
+2. L'Edge Function `purge-nautia-pdfs` utilise l'API Storage pour effacer chaque
+   binaire, puis appelle une seconde RPC qui supprime les métadonnées uniquement
+   si le document est expiré et avait été réservé.
+3. L'endpoint exige un secret dédié d'au moins 32 caractères, comparé par son
+   empreinte. La clé `service_role` reste dans le runtime de la fonction.
+4. `04_retention_schedule.sql` appelle la fonction toutes les dix minutes via
+   `pg_cron` et `pg_net`. L'URL et le secret proviennent de Supabase Vault.
 
-1. Appeler `nautia_expired_pdfs` avec `p_limit = 100`.
-2. Supprimer chaque `object_path` par l’API Storage
-   `storage.from('nautia-pdfs').remove([object_path])`.
-3. Après confirmation de suppression, effacer la ligne de `nautia_pdfs` avec son
-   `id` et un filtre `expires_at <= maintenant`. Un objet déjà absent peut être
-   traité comme supprimé ; les autres erreurs doivent être réessayées.
-4. Répéter par lots jusqu’à épuisement, avec une limite de durée et des alertes
-   en cas d’échec, pour éviter une boucle permanente sur un objet en erreur.
+Ne jamais supprimer directement des lignes de `storage.objects` en SQL : cela ne
+garantit pas l’effacement du binaire. L’accès est bloqué exactement à l’échéance ;
+la suppression physique intervient normalement dans les dix minutes suivantes,
+ou plus tard en cas d’incident. Surveiller les journaux Edge Function,
+`cron.job_run_details` et les réponses de `net._http_response`. Les sauvegardes et
+leurs propres durées de conservation doivent être examinées séparément.
 
-Ne jamais supprimer directement des lignes de `storage.objects` en SQL : cela
-ne garantit pas l’effacement du binaire. Prévoir une exécution fréquente, par
-exemple chaque heure ; la purge effective aura alors un retard pouvant atteindre
-une heure, davantage en cas d’incident, tandis que les accès sont déjà bloqués.
-La rétention physique de six mois n’est donc pas opérationnelle tant que ce
-worker et sa supervision ne sont pas déployés. Les sauvegardes et leurs propres
-durées de conservation devront être examinées séparément.
+La purge ne devient réellement active qu'après déploiement de la fonction,
+création des deux secrets Vault et application du planning. Ces étapes sont
+volontairement séparées : aucun secret et aucun identifiant de projet n'est écrit
+dans Git.
 
 ## Revue avant toute application
 
@@ -118,9 +129,12 @@ Sur une base Supabase de test dédiée, après revue, l’ordre serait :
 
 1. `01_schema.sql` : tables, contraintes, grants et RLS.
 2. `02_storage.sql` : bucket privé et policies d’accès.
-3. `03_retention.sql` : RPC du futur worker.
+3. `03_retention.sql` : RPC minimales du worker.
+4. Déployer `purge-nautia-pdfs`, configurer `NAUTIA_RETENTION_SECRET`, puis créer
+   dans Vault `nautia_retention_url` et `nautia_retention_secret`.
+5. `04_retention_schedule.sql` : planification automatique toutes les dix minutes.
 
-Chaque fichier est transactionnel, mais les trois fichiers ne forment pas une
+Chaque fichier SQL est transactionnel, mais les quatre fichiers ne forment pas une
 transaction commune. Prévoir une sauvegarde et une procédure de reprise avant
 toute migration réelle. Aucun script de rollback destructif n’est fourni.
 
@@ -130,9 +144,14 @@ Les scripts ont été exécutés sur PostgreSQL 17 dans un conteneur jetable ave
 simulations minimales d’Auth et Storage. Les tests vérifient la séparation entre
 deux chantiers, les rôles lecteur/éditeur, les clés étrangères inter-chantiers,
 l’impossibilité de réécrire les historiques ou l’expiration, les accès Storage
-même face à une ancienne policy permissive, et le blocage après expiration.
-Ce contrôle ne teste pas l’API Supabase, les fichiers binaires, les URL signées,
-ni un worker réel. Une validation sur un projet Supabase de test reste nécessaire.
+et la configuration du bucket même face à d’anciennes policies permissives, le
+blocage après expiration, les claims concurrents et les droits RPC limités de
+`service_role`.
+Les quatre fichiers SQL passent également une analyse syntaxique PostgreSQL et
+l'Edge Function passe `deno check` avec Deno 2.5.4. Ce contrôle ne teste pas l’API
+Supabase, les fichiers binaires, les URL signées, Vault/`pg_cron` en conditions
+réelles, ni le worker déployé. Une validation sur un projet Supabase de test reste
+nécessaire.
 
 Pour reproduire, avec Docker, utiliser un conteneur **neuf** portant ce nom :
 

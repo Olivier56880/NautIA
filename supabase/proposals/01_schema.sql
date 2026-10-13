@@ -96,6 +96,7 @@ create table public.nautia_pdfs (
   object_path text not null unique,
   created_at timestamptz not null default now(),
   expires_at timestamptz not null,
+  purge_claimed_at timestamptz,
   check (object_path = chantier_id::text || '/' || id::text || '/document.pdf')
 );
 -- Horloge du serveur, sans prolongation possible depuis le client.
@@ -127,7 +128,8 @@ alter table public.nautia_pdfs enable row level security;
 
 revoke all on public.nautia_chantiers, public.nautia_members,
   public.nautia_hourly_rates, public.nautia_suppliers, public.nautia_catalog_items,
-  public.nautia_price_history, public.nautia_pdfs from public, anon, authenticated;
+  public.nautia_price_history, public.nautia_pdfs
+  from public, anon, authenticated, service_role;
 grant select on public.nautia_chantiers, public.nautia_members,
   public.nautia_hourly_rates, public.nautia_suppliers, public.nautia_catalog_items,
   public.nautia_price_history, public.nautia_pdfs to authenticated;
@@ -148,9 +150,8 @@ grant insert (id, chantier_id, catalog_item_id, unit_price, currency, effective_
 -- Métadonnées PDF immuables ; suppression réservée au worker côté serveur.
 grant insert (id, chantier_id, filename, object_path)
   on public.nautia_pdfs to authenticated;
-grant all on public.nautia_chantiers, public.nautia_members,
-  public.nautia_hourly_rates, public.nautia_suppliers, public.nautia_catalog_items,
-  public.nautia_price_history, public.nautia_pdfs to service_role;
+-- service_role n'a aucun accès direct aux tables NautIA. Les traitements serveur
+-- passent uniquement par les RPC SECURITY DEFINER définies dans 03_retention.sql.
 
 create policy nautia_chantiers_read on public.nautia_chantiers for select to authenticated
   using (nautia_private.can_access(id));

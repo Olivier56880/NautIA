@@ -52,11 +52,16 @@ create schema storage;
 create table storage.buckets (id text primary key, name text, public boolean,
  file_size_limit bigint, allowed_mime_types text[]);
 create table storage.objects (id uuid primary key default gen_random_uuid(),
- bucket_id text references storage.buckets(id), name text);
+ bucket_id text references storage.buckets(id), name text,
+ unique (bucket_id, name));
+alter table storage.buckets enable row level security;
 alter table storage.objects enable row level security;
 grant usage on schema storage to authenticated, anon;
+grant select, insert, update, delete on storage.buckets to authenticated, anon;
 grant select, insert, update, delete on storage.objects to authenticated, anon;
 -- Simule une ancienne policy permissive trop large : les guards doivent gagner.
+create policy legacy_open_bucket_policy on storage.buckets for all to authenticated, anon
+ using (true) with check (true);
 create policy legacy_open_policy on storage.objects for all to authenticated, anon
  using (true) with check (true);
 ''')
@@ -79,6 +84,7 @@ insert into public.nautia_pdfs(id,chantier_id,filename,object_path) values
  ('{ident(13)}','{ident(10)}','devis.pdf','{ident(10)}/{ident(13)}/document.pdf');
 insert into storage.objects(bucket_id,name) values
  ('nautia-pdfs','{ident(10)}/{ident(13)}/document.pdf');
+insert into storage.buckets(id,name,public) values ('other-bucket','other-bucket',false);
 """)
 for user, expected in ((1, 1), (2, 1), (3, 1), (4, 1)):
     expect_count(user, 'nautia_chantiers', expected)
@@ -100,6 +106,19 @@ as_user(4, 'delete from public.nautia_price_history', False)
 as_user(4, 'update public.nautia_pdfs set expires_at=now()', False)
 as_user(4, f"insert into public.nautia_pdfs(chantier_id,filename,object_path) values ('{ident(10)}','x.pdf','wrong/path.pdf')", False)
 
+# Même une ancienne policy permissive ne peut rendre le bucket NautIA public,
+# le modifier ou le supprimer. Elle continue de régir les autres buckets.
+out, _ = as_user(1, "update storage.buckets set public=true where id='nautia-pdfs'")
+assert 'UPDATE 0' in out, out
+out, _ = as_user(1, "delete from storage.buckets where id='nautia-pdfs'")
+assert 'DELETE 0' in out, out
+out, _ = sql("begin; set local role anon; update storage.buckets set public=true where id='nautia-pdfs'; rollback;")
+assert 'UPDATE 0' in out, out
+out, _ = as_user(1, "update storage.buckets set public=true where id='other-bucket'")
+assert 'UPDATE 1' in out, out
+out, _ = sql("select public from storage.buckets where id='nautia-pdfs'")
+assert out == 'f', out
+
 for user, expected in ((1, 1), (2, 0), (3, 1), (4, 1)):
     out, _ = as_user(user, 'select count(*) from storage.objects')
     assert str(expected) in out.splitlines(), out
@@ -111,14 +130,34 @@ out, _ = as_user(4, 'delete from storage.objects returning id')
 assert 'DELETE 0' in out, out
 as_user(2, f"insert into storage.objects(bucket_id,name) values ('nautia-pdfs','{ident(10)}/{ident(13)}/document.pdf')", False)
 as_user(3, f"insert into storage.objects(bucket_id,name) values ('nautia-pdfs','{ident(10)}/{ident(13)}/document.pdf')", False)
-as_user(4, f"insert into storage.objects(bucket_id,name) values ('nautia-pdfs','{ident(10)}/{ident(13)}/document.pdf')")
-as_user(1, 'select * from public.nautia_expired_pdfs()', False)
+as_user(4, f"insert into public.nautia_pdfs(id,chantier_id,filename,object_path) values ('{ident(14)}','{ident(10)}','facture.pdf','{ident(10)}/{ident(14)}/document.pdf'); insert into storage.objects(bucket_id,name) values ('nautia-pdfs','{ident(10)}/{ident(14)}/document.pdf')")
+as_user(1, 'select * from public.nautia_claim_expired_pdfs()', False)
+as_user(1, f"select public.nautia_finalize_pdf_deletions(jsonb_build_array(jsonb_build_object('document_id','{ident(13)}','object_path','{ident(10)}/{ident(13)}/document.pdf')))", False)
 out, _ = sql('select bool_and(expires_at = ((created_at at time zone \'UTC\' + interval \'6 months\') at time zone \'UTC\')) from public.nautia_pdfs;')
 assert out == 't', out
-sql('update public.nautia_pdfs set expires_at=now()-interval \'1 second\';')
+
+# service_role contourne RLS mais n'a pas de droits directs sur les tables NautIA.
+sql('begin; set local role service_role; select * from public.nautia_pdfs; rollback;', False)
+out, _ = sql('begin; set local role service_role; select count(*) from public.nautia_claim_expired_pdfs(); rollback;')
+assert '0' in out.splitlines(), out
+
+# Après l'échéance, les utilisateurs ne voient plus le document. Le worker le
+# réserve une seule fois et ne peut finaliser tant que l'objet Storage existe.
+sql(f"update public.nautia_pdfs set expires_at=now()-interval '1 second' where id='{ident(13)}';")
 expect_count(1, 'nautia_pdfs', 0)
 out, _ = as_user(1, 'select count(*) from storage.objects')
 assert '0' in out.splitlines(), out
-out, _ = sql('begin; set local role service_role; select count(*) from public.nautia_expired_pdfs(); rollback;')
+out, _ = sql('begin; set local role service_role; select * from public.nautia_claim_expired_pdfs(); commit;')
+assert ident(13) in out, out
+out, _ = sql('begin; set local role service_role; select count(*) from public.nautia_claim_expired_pdfs(); rollback;')
+assert '0' in out.splitlines(), out
+out, _ = sql(f"begin; set local role service_role; select public.nautia_finalize_pdf_deletions(jsonb_build_array(jsonb_build_object('document_id','{ident(13)}','object_path','{ident(10)}/{ident(13)}/document.pdf'))); rollback;")
+assert '0' in out.splitlines(), out
+sql(f"delete from storage.objects where bucket_id='nautia-pdfs' and name='{ident(10)}/{ident(13)}/document.pdf';")
+out, _ = sql(f"begin; set local role service_role; select public.nautia_finalize_pdf_deletions(jsonb_build_array(jsonb_build_object('document_id','{ident(13)}','object_path','{ident(10)}/{ident(13)}/document.pdf'))); commit;")
 assert '1' in out.splitlines(), out
-print('OK : schéma, RLS, séparation des relations, rôles, Storage privé et expiration.')
+out, _ = sql(f"select count(*) from public.nautia_pdfs where id='{ident(13)}'")
+assert out == '0', out
+out, _ = sql('begin; set local role service_role; select count(*) from public.nautia_claim_expired_pdfs(); rollback;')
+assert '0' in out.splitlines(), out
+print('OK : isolation, bucket immuable, RPC minimales et purge après expiration.')

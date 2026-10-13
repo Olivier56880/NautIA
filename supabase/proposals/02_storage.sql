@@ -3,6 +3,19 @@ begin;
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('nautia-pdfs', 'nautia-pdfs', false, 20971520, array['application/pdf']);
 
+-- Une policy permissive existante sur storage.buckets ne doit pas permettre de
+-- rendre ce bucket public, de modifier ses limites ou de le supprimer. Les autres
+-- buckets restent régis par leurs propres policies.
+create policy nautia_bucket_insert_guard on storage.buckets as restrictive
+for insert to anon, authenticated
+with check (id <> 'nautia-pdfs');
+create policy nautia_bucket_update_guard on storage.buckets as restrictive
+for update to anon, authenticated
+using (id <> 'nautia-pdfs') with check (id <> 'nautia-pdfs');
+create policy nautia_bucket_delete_guard on storage.buckets as restrictive
+for delete to anon, authenticated
+using (id <> 'nautia-pdfs');
+
 -- Les policies permissives existantes s'additionnent avec OR. Ces garde-fous
 -- restrictifs imposent donc l'isolation même si une ancienne policy est large.
 create policy nautia_storage_anon_guard on storage.objects as restrictive
@@ -35,5 +48,6 @@ with check (bucket_id = 'nautia-pdfs' and exists (
   and d.expires_at > now() and nautia_private.can_access(d.chantier_id, true)
 ));
 -- Pas de policy UPDATE/DELETE : pas d'upsert, déplacement ou effacement client.
--- Le worker de rétention emploie l'API Storage avec service_role côté serveur.
+-- Le worker de rétention emploie l'API Storage avec service_role uniquement
+-- dans l'Edge Function ; cette clé n'est jamais envoyée par le planificateur.
 commit;
