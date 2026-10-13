@@ -21,7 +21,7 @@ Ne pas les exécuter en production avant comparaison avec le schéma existant.
 | `nautia_suppliers` | Fournisseurs propres au chantier |
 | `nautia_catalog_items` | Catalogue de chaque fournisseur, référence et unité |
 | `nautia_price_history` | Prix datés, ajoutés sans réécriture de l’historique |
-| `nautia_pdfs` | Métadonnées, échéance et réservation de purge des fichiers privés |
+| `nautia_pdfs` | Catalogues PDF privés, attachés à un fournisseur et un chantier |
 
 Les montants sont des décimaux, jamais des nombres flottants. Convention proposée :
 prix et tarifs hors taxes ; aucune TVA ni conversion monétaire n’est implémentée.
@@ -33,7 +33,8 @@ chevauchement entre périodes d’un même métier n’est pas imposée dans cet
 
 ## Séparation des chantiers
 
-- Toutes les tables métier portent `chantier_id`.
+- Toutes les tables métier portent `chantier_id`. Chaque PDF de catalogue référence
+  également un fournisseur du même chantier.
 - Les clés étrangères composites interdisent un article lié au fournisseur d’un
   autre chantier, ou un prix lié à l’article d’un autre chantier.
 - RLS filtre les lignes avec l’identité Supabase Auth (`auth.uid()`).
@@ -72,7 +73,8 @@ de la plateforme peuvent modifier la configuration du bucket.
 Procédure d’ajout :
 
 1. Générer un UUID de document côté client.
-2. Insérer `id`, `chantier_id`, `filename` et `object_path` dans `nautia_pdfs`.
+2. Insérer `id`, `chantier_id`, `supplier_id`, `filename` et `object_path` dans
+   `nautia_pdfs`. Le fournisseur doit déjà appartenir à ce chantier.
 3. Envoyer le PDF dans `nautia-pdfs`, au chemin exact
    `<chantier_uuid>/<document_uuid>/document.pdf`, sans `upsert`.
 4. En cas d’échec d’upload, conserver l’UUID pour réessayer le même objet ; un
@@ -98,7 +100,8 @@ inclut maintenant quatre éléments complémentaires :
    Un lot abandonné redevient disponible après quinze minutes.
 2. L'Edge Function `purge-nautia-pdfs` utilise l'API Storage pour effacer chaque
    binaire, puis appelle une seconde RPC qui supprime les métadonnées uniquement
-   si le document est expiré et avait été réservé.
+   si le document est expiré et avait été réservé, et si le chemin n'existe plus
+   dans `storage.objects`.
 3. L'endpoint exige un secret dédié d'au moins 32 caractères, comparé par son
    empreinte. La clé `service_role` reste dans le runtime de la fonction.
 4. `04_retention_schedule.sql` appelle la fonction toutes les dix minutes via
@@ -123,8 +126,10 @@ fonctions, grants, policies RLS et paramètres/policies Storage. Vérifier les
 conflits avec les noms `nautia_*`, les données à reprendre, les utilisateurs et
 les droits existants, ainsi que la version PostgreSQL du projet.
 
-Les scripts créent de nouveaux objets et échouent en cas de conflit ; ils ne sont
-pas idempotents et ne remplacent ni ne suppriment des objets préexistants.
+Commencer par `00_preflight_readonly.sql` pour inventorier les métadonnées de
+`client`, `demande_devis`, des policies et de Storage, sans lire les lignes
+métier. Les scripts créent de nouveaux objets et échouent en cas de conflit ; ils
+ne sont pas idempotents et ne remplacent ni ne suppriment des objets préexistants.
 Sur une base Supabase de test dédiée, après revue, l’ordre serait :
 
 1. `01_schema.sql` : tables, contraintes, grants et RLS.

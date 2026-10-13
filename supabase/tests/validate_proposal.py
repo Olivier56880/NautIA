@@ -80,8 +80,8 @@ insert into public.nautia_catalog_items(id, chantier_id, supplier_id, supplier_r
  values ('{ident(12)}','{ident(10)}','{ident(11)}','REF','Article','u');
 insert into public.nautia_price_history(chantier_id,catalog_item_id,unit_price)
  values ('{ident(10)}','{ident(12)}',12.50);
-insert into public.nautia_pdfs(id,chantier_id,filename,object_path) values
- ('{ident(13)}','{ident(10)}','devis.pdf','{ident(10)}/{ident(13)}/document.pdf');
+insert into public.nautia_pdfs(id,chantier_id,supplier_id,filename,object_path) values
+ ('{ident(13)}','{ident(10)}','{ident(11)}','catalogue.pdf','{ident(10)}/{ident(13)}/document.pdf');
 insert into storage.objects(bucket_id,name) values
  ('nautia-pdfs','{ident(10)}/{ident(13)}/document.pdf');
 insert into storage.buckets(id,name,public) values ('other-bucket','other-bucket',false);
@@ -104,7 +104,7 @@ as_user(4, f"insert into public.nautia_catalog_items(chantier_id,supplier_id,sup
 as_user(4, 'update public.nautia_price_history set unit_price=0', False)
 as_user(4, 'delete from public.nautia_price_history', False)
 as_user(4, 'update public.nautia_pdfs set expires_at=now()', False)
-as_user(4, f"insert into public.nautia_pdfs(chantier_id,filename,object_path) values ('{ident(10)}','x.pdf','wrong/path.pdf')", False)
+as_user(4, f"insert into public.nautia_pdfs(chantier_id,supplier_id,filename,object_path) values ('{ident(10)}','{ident(21)}','x.pdf','wrong/path.pdf')", False)
 
 # Même une ancienne policy permissive ne peut rendre le bucket NautIA public,
 # le modifier ou le supprimer. Elle continue de régir les autres buckets.
@@ -130,7 +130,7 @@ out, _ = as_user(4, 'delete from storage.objects returning id')
 assert 'DELETE 0' in out, out
 as_user(2, f"insert into storage.objects(bucket_id,name) values ('nautia-pdfs','{ident(10)}/{ident(13)}/document.pdf')", False)
 as_user(3, f"insert into storage.objects(bucket_id,name) values ('nautia-pdfs','{ident(10)}/{ident(13)}/document.pdf')", False)
-as_user(4, f"insert into public.nautia_pdfs(id,chantier_id,filename,object_path) values ('{ident(14)}','{ident(10)}','facture.pdf','{ident(10)}/{ident(14)}/document.pdf'); insert into storage.objects(bucket_id,name) values ('nautia-pdfs','{ident(10)}/{ident(14)}/document.pdf')")
+as_user(4, f"insert into public.nautia_pdfs(id,chantier_id,supplier_id,filename,object_path) values ('{ident(14)}','{ident(10)}','{ident(11)}','catalogue-2026.pdf','{ident(10)}/{ident(14)}/document.pdf'); insert into storage.objects(bucket_id,name) values ('nautia-pdfs','{ident(10)}/{ident(14)}/document.pdf')")
 as_user(1, 'select * from public.nautia_claim_expired_pdfs()', False)
 as_user(1, f"select public.nautia_finalize_pdf_deletions(jsonb_build_array(jsonb_build_object('document_id','{ident(13)}','object_path','{ident(10)}/{ident(13)}/document.pdf')))", False)
 out, _ = sql('select bool_and(expires_at = ((created_at at time zone \'UTC\' + interval \'6 months\') at time zone \'UTC\')) from public.nautia_pdfs;')

@@ -92,11 +92,14 @@ create index nautia_prices_lookup_idx on public.nautia_price_history
 create table public.nautia_pdfs (
   id uuid primary key default gen_random_uuid(),
   chantier_id uuid not null references public.nautia_chantiers(id),
+  supplier_id uuid not null,
   filename text not null check (length(trim(filename)) > 0),
   object_path text not null unique,
   created_at timestamptz not null default now(),
   expires_at timestamptz not null,
   purge_claimed_at timestamptz,
+  foreign key (chantier_id, supplier_id)
+    references public.nautia_suppliers(chantier_id, id),
   check (object_path = chantier_id::text || '/' || id::text || '/document.pdf')
 );
 -- Horloge du serveur, sans prolongation possible depuis le client.
@@ -148,7 +151,7 @@ grant update (supplier_id, supplier_reference, label, unit)
 grant insert (id, chantier_id, catalog_item_id, unit_price, currency, effective_at)
   on public.nautia_price_history to authenticated;
 -- Métadonnées PDF immuables ; suppression réservée au worker côté serveur.
-grant insert (id, chantier_id, filename, object_path)
+grant insert (id, chantier_id, supplier_id, filename, object_path)
   on public.nautia_pdfs to authenticated;
 -- service_role n'a aucun accès direct aux tables NautIA. Les traitements serveur
 -- passent uniquement par les RPC SECURITY DEFINER définies dans 03_retention.sql.
