@@ -7,9 +7,11 @@ Selon le rapport transmis par l'utilisateur, la base NautIA Demo contient
 environ une ligne de test dans chacune, RLS activé et aucune policy sur ces deux
 tables. Le nom communiqué de la seconde table et de sa colonne cliente reste à
 confirmer : « underscore » désigne-t-il le caractère `_` (`"Demande_devis"`,
-`"Client_ID"`) ou fait-il littéralement partie du nom ? Le prévol SQL récent
-cherche `public.demande_devis` en minuscules exactes et ne verra pas une table
-quotée avec majuscules différentes ou un autre nom.
+`"Client_ID"`) ou fait-il littéralement partie du nom ? Le prévol recherche les
+noms publics contenant `client` ou `devis`, sans tenir compte de la casse ; il
+devrait retrouver ces variantes si le rôle SQL peut voir leurs métadonnées. Il
+faut néanmoins confirmer les noms exacts et la colonne référencée pour comparer
+précisément les contraintes.
 
 La table `client` a une clé primaire `(nom, id)` et `UNIQUE (id)`. La seconde a
 `PRIMARY KEY (id)` et une clé étrangère vers `client(id)`. Cette référence est
