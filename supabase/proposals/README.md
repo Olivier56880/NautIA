@@ -2,10 +2,12 @@
 
 ## Analyse et périmètre
 
-Le dépôt contient uniquement un README d’initialisation. Aucun code applicatif,
-schéma SQL, export Supabase ou configuration de la base existante n’est disponible.
-Ces fichiers proposent donc une structure nouvelle ; ils ne constituent pas une
-migration validée de votre base actuelle. Aucune connexion à celle-ci n’a été faite.
+Le dépôt contient le README d’initialisation et les propositions SQL. L'utilisateur
+a fourni un résumé du schéma existant (`client`, une table de demandes, RLS sans
+policies, aucun objet `nautia_*`, Vault présent, `pg_cron`/`pg_net` absents), mais
+aucun export exhaustif du schéma ou des policies Storage n'est disponible. Ces
+fichiers proposent donc une structure nouvelle ; ils ne constituent pas une
+migration validée de la base actuelle. Aucune connexion à celle-ci n’a été faite.
 
 Les fichiers sont volontairement placés dans `proposals/`, et non dans
 `supabase/migrations/`, pour éviter une application automatique par le CLI.
