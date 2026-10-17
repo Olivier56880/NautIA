@@ -47,6 +47,10 @@
 </div>
 <section id="contact-panel" hidden>
 <p>Pour être recontacté, vous pouvez préparer un récapitulatif de votre demande. Aucun e-mail n'est envoyé pendant ce test.</p>
+<label for="fullname">Nom et prénom</label>
+<input id="fullname" type="text" maxlength="120" placeholder="Nom et prénom" autocomplete="name" required>
+<label for="location">Ville et département (ou pays)</label>
+<input id="location" type="text" maxlength="160" placeholder="Ex. Vannes, Morbihan (56)" autocomplete="address-level2" required>
 <label for="email">Adresse e-mail</label>
 <input id="email" type="email" placeholder="vous@exemple.fr" autocomplete="email">
 <label for="phone">Téléphone (facultatif)</label>
@@ -116,10 +120,23 @@ form.addEventListener("submit", async (event) => {
 
 prepare.addEventListener("click", () => {
   panel.hidden = !panel.hidden;
-  if (!panel.hidden) document.getElementById("email").focus();
+  if (!panel.hidden) document.getElementById("fullname").focus();
 });
 
 copy.addEventListener("click", async () => {
+  const nameField = document.getElementById("fullname");
+  const locationField = document.getElementById("location");
+  const status = document.getElementById("copy-status");
+  if (!nameField.value.trim()) {
+    status.textContent = "Indiquez votre nom et prénom.";
+    nameField.focus();
+    return;
+  }
+  if (!locationField.value.trim()) {
+    status.textContent = "Indiquez votre ville et votre département (ou pays).";
+    locationField.focus();
+    return;
+  }
   const emailField = document.getElementById("email");
   if (!emailField.value.trim() || !emailField.checkValidity()) {
     document.getElementById("copy-status").textContent = "Saisissez une adresse e-mail valide.";
@@ -131,6 +148,8 @@ copy.addEventListener("click", async () => {
     .join("\n\n");
   const recap = [
     "DEMANDE DE CONTACT – NIPPON HÉRITAGE",
+    "Nom et prénom : " + nameField.value.trim(),
+    "Localisation : " + locationField.value.trim(),
     "E-mail : " + emailField.value.trim(),
     "Téléphone : " + (document.getElementById("phone").value.trim() || "Non communiqué"),
     "",
