@@ -1,316 +1,168 @@
 <!DOCTYPE html>
 <html lang="fr">
-
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>Nippon Héritage - Assistant virtuel</title>
-
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nippon Héritage – Assistant de test</title>
 <style>
-body {
-    font-family: Arial, sans-serif;
-    background: #f1f3f5;
-    margin: 0;
-    padding: 20px;
-}
-
-.chatbot {
-    max-width: 550px;
-    margin: 40px auto;
-    background: white;
-    border-radius: 15px;
-    box-shadow: 0 4px 20px #0002;
-    overflow: hidden;
-}
-
-.header {
-    background: #172c46;
-    color: white;
-    padding: 20px;
-    text-align: center;
-}
-
-.header h2 {
-    margin: 0 0 8px;
-}
-
-.messages {
-    height: 380px;
-    overflow-y: auto;
-    padding: 20px;
-}
-
-.message {
-    padding: 12px;
-    margin-bottom: 12px;
-    border-radius: 12px;
-    max-width: 85%;
-    white-space: pre-wrap;
-}
-
-.bot {
-    background: #e9ecef;
-}
-
-.client {
-    background: #d5e8ff;
-    margin-left: auto;
-}
-
-form {
-    display: flex;
-    padding: 15px;
-    gap: 10px;
-    border-top: 1px solid #ddd;
-}
-
-input {
-    flex: 1;
-    min-width: 0;
-    padding: 12px;
-    border: 1px solid #ccc;
-    border-radius: 8px;
-}
-
-button {
-    background: #172c46;
-    color: white;
-    border: none;
-    padding: 12px;
-    border-radius: 8px;
-    cursor: pointer;
-}
-
-button:hover {
-    background: #294d77;
-}
-
-.actions {
-    padding: 0 15px 15px;
-}
-
-.actions button {
-    width: 100%;
-}
+  * { box-sizing: border-box }
+  body { font-family: Arial,sans-serif; background:#f1f3f5; margin:0; padding:16px; color:#15283e }
+  .chatbot { max-width:600px; margin:30px auto; background:#fff; border-radius:16px; overflow:hidden; box-shadow:0 4px 22px #0002 }
+  header { background:#172c46; color:#fff; padding:20px; text-align:center }
+  header h1 { margin:0 0 8px; font-size:24px }
+  header p { margin:0; font-size:14px }
+  #messages { height:420px; overflow-y:auto; padding:18px; }
+  .message { padding:12px 14px; margin:0 0 12px; border-radius:12px; max-width:88%; white-space:pre-wrap; line-height:1.4; overflow-wrap:anywhere }
+  .bot { background:#e9ecef }
+  .client { background:#d5e8ff; margin-left:auto }
+  form { display:flex; padding:14px; gap:9px; border-top:1px solid #eee }
+  input { min-width:0; flex:1; padding:11px; border:1px solid #aaa; border-radius:8px; font-size:16px }
+  button { background:#172c46; color:white; border:0; border-radius:8px; padding:11px 15px; cursor:pointer }
+  button:disabled { opacity:.55; cursor:wait }
+  .actions { display:flex; gap:10px; padding:0 14px 14px }
+  .actions button { flex:1 }
+  .note { padding:0 14px 15px; font-size:12px; color:#515962; line-height:1.35 }
+  #contact-panel { padding:12px 14px; border-top:1px solid #eee }
+  #contact-panel label { display:block; margin:8px 0 4px; font-size:14px }
+  #contact-panel input { width:100% }
+  #contact-panel button { margin-top:10px }
+  [hidden] { display:none !important }
 </style>
 </head>
-
 <body>
-
-<div class="chatbot">
-
-    <div class="header">
-        <h2>Nippon Héritage</h2>
-        <div>Votre assistant virtuel</div>
-    </div>
-
-    <div class="messages" id="messages"></div>
-
-    <form id="formulaire">
-        <input
-            id="reponse"
-            type="text"
-            placeholder="Écrivez votre message..."
-            autocomplete="off"
-        >
-        <button type="submit">Envoyer</button>
-    </form>
-
-    <div class="actions" id="actions"></div>
-
+<main class="chatbot">
+<header>
+<h1>Nippon Héritage</h1>
+<p>Assistant virtuel – démonstration NautIA</p>
+</header>
+<section id="messages" aria-label="Conversation" aria-live="polite">
+<div class="message bot">Bonjour et bienvenue chez Nippon Héritage ! En quoi puis-je vous aider aujourd'hui ?</div>
+</section>
+<form id="chat-form">
+<input id="message" type="text" maxlength="1200" autocomplete="off" placeholder="Écrivez votre question…" aria-label="Votre message" required>
+<button id="send" type="submit">Envoyer</button>
+</form>
+<div class="actions">
+<button id="prepare" type="button">Préparer ma demande</button>
 </div>
-
+<section id="contact-panel" hidden>
+<p>Pour être recontacté, vous pouvez préparer un récapitulatif de votre demande. Aucun e-mail n'est envoyé pendant ce test.</p>
+<label for="fullname">Nom et prénom</label>
+<input id="fullname" type="text" maxlength="120" placeholder="Nom et prénom" autocomplete="name" required>
+<label for="location">Ville et département (ou pays)</label>
+<input id="location" type="text" maxlength="160" placeholder="Ex. Vannes, Morbihan (56)" autocomplete="address-level2" required>
+<label for="email">Adresse e-mail</label>
+<input id="email" type="email" placeholder="vous@exemple.fr" autocomplete="email">
+<label for="phone">Téléphone (facultatif)</label>
+<input id="phone" type="tel" placeholder="Numéro de téléphone" autocomplete="tel">
+<button id="copy" type="button">Copier le récapitulatif</button>
+<p id="copy-status" role="status"></p>
+</section>
+<p class="note">Version de test. Les réponses sont générées par IA et peuvent contenir des erreurs. Ne partagez pas de données sensibles. Aucune demande n'est envoyée automatiquement pour l'instant.</p>
+</main>
 <script>
-
+const conversation = [];
 const messages = document.getElementById("messages");
-const formulaire = document.getElementById("formulaire");
-const reponse = document.getElementById("reponse");
-const actions = document.getElementById("actions");
+const form = document.getElementById("chat-form");
+const input = document.getElementById("message");
+const send = document.getElementById("send");
+const prepare = document.getElementById("prepare");
+const panel = document.getElementById("contact-panel");
+const copy = document.getElementById("copy");
+let waiting = false;
 
-let etape = 0;
-
-const donnees = {
-    demande: "",
-    modele: "",
-    precisions: "",
-    email: "",
-    telephone: ""
-};
-
-function afficherMessage(texte, type) {
-    const message = document.createElement("div");
-
-    message.className = "message " + type;
-    message.textContent = texte;
-
-    messages.appendChild(message);
-    messages.scrollTop = messages.scrollHeight;
+function addMessage(text, kind) {
+  const node = document.createElement("div");
+  node.className = "message " + kind;
+  node.textContent = text;
+  messages.appendChild(node);
+  messages.scrollTop = messages.scrollHeight;
+  return node;
 }
 
-function question(texte) {
-    afficherMessage(texte, "bot");
-    reponse.focus();
-}
-
-function estVideOuPasse(texte) {
-    return !texte || /^(passer|je ne sais pas|aucun|non)$/i.test(texte);
-}
-
-function modeleDejaMentionne(texte) {
-    const modeles = [
-        /\b(?:CB|CBR|CBF|CX|GL|VT|VFR|XL|XR|CRF)\s?-?\d{2,4}\b/i,
-        /\b(?:XT|XJ|XS|YZF|MT|FZR|FZ|RD)\s?-?\d{2,4}\b/i,
-        /\b(?:GSX|GSXR|GSX-R|GS|DR|SV|V-STROM)\s?-?\d{2,4}\b/i,
-        /\b(?:ZZR|ZXR|ZX|Z|GPZ|GPX|ER)\s?-?\d{2,4}\b/i,
-        /\b(?:R|K|F|S)\s?\d{3,4}\s?(?:GS|RR|R)?\b/i,
-        /\b(?:Bonneville|Speed Twin|Street Triple|Thruxton|Monster|Scrambler)\b/i
-    ];
-
-    return modeles.some(modele => modele.test(texte));
-}
-
-question(
-    "Bonjour et bienvenue chez Nippon Héritage !\n\n" +
-    "En quoi puis-je vous aider aujourd'hui ?"
-);
-
-formulaire.addEventListener("submit", function(event) {
-    event.preventDefault();
-
-    const texte = reponse.value.trim();
-
-    if (!texte && (etape === 0 || etape === 3)) {
-        question("Merci de renseigner ce champ pour continuer.");
-        return;
+form.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (waiting) return;
+  const text = input.value.trim();
+  if (!text) return;
+  if (conversation.length >= 18) {
+    addMessage("Pour ce test, la conversation a atteint sa limite. Rechargez la page pour recommencer.", "bot");
+    return;
+  }
+  conversation.push({ role:"user", content:text });
+  addMessage(text, "client");
+  input.value = "";
+  waiting = true;
+  send.disabled = true;
+  const pending = addMessage("Un instant, je vous réponds…", "bot");
+  try {
+    const response = await fetch("/api/chat", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({ messages:conversation })
+    });
+    const data = await response.json();
+    if (!response.ok || typeof data.reply !== "string") {
+      throw new Error(data.error || "Réponse indisponible.");
     }
-
-    if (etape === 3) {
-        const emailValide = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(texte);
-
-        if (!emailValide) {
-            question("Pouvez-vous saisir une adresse e-mail valide ?");
-            return;
-        }
-    }
-
-    afficherMessage(texte || "Passer", "client");
-    reponse.value = "";
-
-    if (etape === 0) {
-
-        donnees.demande = texte;
-
-        if (modeleDejaMentionne(texte)) {
-            donnees.modele = "Indiqué dans la demande";
-            etape = 2;
-
-            question(
-                "Merci pour ces informations.\n\n" +
-                "Souhaitez-vous apporter des précisions à votre demande ? " +
-                "Vous pouvez aussi écrire « passer »."
-            );
-
-        } else {
-            etape = 1;
-
-            question(
-                "Merci pour votre message.\n\n" +
-                "Si votre demande concerne une moto précise, " +
-                "pouvez-vous m'indiquer sa marque et son modèle ?\n\n" +
-                "Si vous ne le connaissez pas, écrivez « passer »."
-            );
-        }
-
-    } else if (etape === 1) {
-
-        donnees.modele = estVideOuPasse(texte)
-            ? "Non précisé"
-            : texte;
-
-        etape = 2;
-
-        question(
-            "Très bien, merci.\n\n" +
-            "Avez-vous des précisions à ajouter concernant votre demande ?\n\n" +
-            "Sinon, écrivez « passer »."
-        );
-
-    } else if (etape === 2) {
-
-        donnees.precisions = estVideOuPasse(texte)
-            ? "Aucune précision supplémentaire"
-            : texte;
-
-        etape = 3;
-        reponse.type = "email";
-
-        question(
-            "Merci, j'ai les informations concernant votre demande.\n\n" +
-            "Pour que Nippon Héritage puisse vous répondre, " +
-            "quelle est votre adresse e-mail ?"
-        );
-
-    } else if (etape === 3) {
-
-        donnees.email = texte;
-
-        etape = 4;
-        reponse.type = "tel";
-
-        question(
-            "Merci !\n\n" +
-            "Souhaitez-vous également laisser un numéro de téléphone ?\n\n" +
-            "C'est facultatif. Vous pouvez écrire « passer »."
-        );
-
-    } else if (etape === 4) {
-
-        donnees.telephone = estVideOuPasse(texte)
-            ? "Non communiqué"
-            : texte;
-
-        terminerConversation();
-    }
+    pending.textContent = data.reply;
+    conversation.push({ role:"assistant", content:data.reply });
+  } catch (error) {
+    pending.textContent = error.message || "Une erreur est survenue. Réessayez.";
+    conversation.pop();
+    input.value = text;
+  } finally {
+    waiting = false;
+    send.disabled = false;
+    input.focus();
+  }
 });
 
-function terminerConversation() {
+prepare.addEventListener("click", () => {
+  panel.hidden = !panel.hidden;
+  if (!panel.hidden) document.getElementById("fullname").focus();
+});
 
-    const resume =
-        "DEMANDE NIPPON HÉRITAGE\n\n" +
-        "Demande : " + donnees.demande + "\n\n" +
-        "Moto : " + donnees.modele + "\n\n" +
-        "Précisions : " + donnees.precisions + "\n\n" +
-        "E-mail : " + donnees.email + "\n" +
-        "Téléphone : " + donnees.telephone;
-
-    afficherMessage(
-        "Merci pour votre demande !\n\n" +
-        "Voici le récapitulatif des informations recueillies :\n\n" +
-        resume +
-        "\n\nCe chatbot est actuellement en phase de test. " +
-        "Votre demande n'a pas encore été transmise à Nippon Héritage.",
-        "bot"
-    );
-
-    formulaire.style.display = "none";
-
-    const bouton = document.createElement("button");
-    bouton.textContent = "Copier le récapitulatif";
-
-    bouton.addEventListener("click", async function() {
-        try {
-            await navigator.clipboard.writeText(resume);
-            bouton.textContent = "Récapitulatif copié !";
-        } catch (erreur) {
-            bouton.textContent = "Copie indisponible";
-        }
-    });
-
-    actions.appendChild(bouton);
-}
-
+copy.addEventListener("click", async () => {
+  const nameField = document.getElementById("fullname");
+  const locationField = document.getElementById("location");
+  const status = document.getElementById("copy-status");
+  if (!nameField.value.trim()) {
+    status.textContent = "Indiquez votre nom et prénom.";
+    nameField.focus();
+    return;
+  }
+  if (!locationField.value.trim()) {
+    status.textContent = "Indiquez votre ville et votre département (ou pays).";
+    locationField.focus();
+    return;
+  }
+  const emailField = document.getElementById("email");
+  if (!emailField.value.trim() || !emailField.checkValidity()) {
+    document.getElementById("copy-status").textContent = "Saisissez une adresse e-mail valide.";
+    emailField.focus();
+    return;
+  }
+  const transcript = conversation
+    .map((m) => (m.role === "user" ? "VISITEUR : " : "ASSISTANT : ") + m.content)
+    .join("\n\n");
+  const recap = [
+    "DEMANDE DE CONTACT – NIPPON HÉRITAGE",
+    "Nom et prénom : " + nameField.value.trim(),
+    "Localisation : " + locationField.value.trim(),
+    "E-mail : " + emailField.value.trim(),
+    "Téléphone : " + (document.getElementById("phone").value.trim() || "Non communiqué"),
+    "",
+    "Échange :",
+    transcript || "Aucune conversation"
+  ].join("\n");
+  try {
+    await navigator.clipboard.writeText(recap);
+    document.getElementById("copy-status").textContent = "Récapitulatif copié. Aucun e-mail n'a été envoyé.";
+  } catch {
+    document.getElementById("copy-status").textContent = "Copie impossible dans ce navigateur.";
+  }
+});
 </script>
-
 </body>
 </html>
