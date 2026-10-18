@@ -26,6 +26,9 @@
   #contact-panel label { display:block; margin:8px 0 4px; font-size:14px }
   #contact-panel input { width:100% }
   #contact-panel button { margin-top:10px }
+  #contact-panel .consent { display:flex; align-items:flex-start; gap:8px; line-height:1.4 }
+  #contact-panel .consent input { width:auto; margin-top:3px }
+  .trap { position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden }
   [hidden] { display:none !important }
 </style>
 </head>
@@ -46,7 +49,7 @@
 <button id="prepare" type="button">Préparer ma demande</button>
 </div>
 <section id="contact-panel" hidden>
-<p>Pour être recontacté, vous pouvez préparer un récapitulatif de votre demande. Aucun e-mail n'est envoyé pendant ce test.</p>
+<p>Pour être recontacté au sujet de votre demande, renseignez vos coordonnées et autorisez leur transmission à Nippon Héritage et KERVENOA.</p>
 <label for="fullname">Nom et prénom</label>
 <input id="fullname" type="text" maxlength="120" placeholder="Nom et prénom" autocomplete="name" required>
 <label for="location">Ville et département (ou pays)</label>
@@ -55,10 +58,12 @@
 <input id="email" type="email" placeholder="vous@exemple.fr" autocomplete="email">
 <label for="phone">Téléphone (facultatif)</label>
 <input id="phone" type="tel" placeholder="Numéro de téléphone" autocomplete="tel">
-<button id="copy" type="button">Copier le récapitulatif</button>
+<div class="trap" aria-hidden="true"><label for="website">Site Internet</label><input id="website" type="text" tabindex="-1" autocomplete="off"></div>
+<label class="consent" for="consent"><input id="consent" type="checkbox"> J'accepte la transmission de mes coordonnées et de ma demande à Nippon Héritage et KERVENOA pour être recontacté.</label>
+<button id="copy" type="button">Envoyer ma demande</button>
 <p id="copy-status" role="status"></p>
 </section>
-<p class="note">Version de test. Les réponses sont générées par IA et peuvent contenir des erreurs. Ne partagez pas de données sensibles. Aucune demande n'est envoyée automatiquement pour l'instant.</p>
+<p class="note">Version de test. Les réponses de l’IA peuvent contenir des erreurs. Ne partagez pas de données sensibles. L’envoi nécessite un domaine expéditeur vérifié dans Resend ; sans cela, aucune demande n’est transmise.</p>
 </main>
 <script>
 const conversation = [];
@@ -124,9 +129,18 @@ prepare.addEventListener("click", () => {
 });
 
 copy.addEventListener("click", async () => {
+  if (copy.disabled) return;
+  const status = document.getElementById("copy-status");
   const nameField = document.getElementById("fullname");
   const locationField = document.getElementById("location");
-  const status = document.getElementById("copy-status");
+  const emailField = document.getElementById("email");
+  const phoneField = document.getElementById("phone");
+  const consent = document.getElementById("consent");
+
+  if (!conversation.some(m => m.role === "user")) {
+    status.textContent = "Échangez d'abord avec l'assistant pour préciser votre demande.";
+    return;
+  }
   if (!nameField.value.trim()) {
     status.textContent = "Indiquez votre nom et prénom.";
     nameField.focus();
@@ -137,30 +151,44 @@ copy.addEventListener("click", async () => {
     locationField.focus();
     return;
   }
-  const emailField = document.getElementById("email");
   if (!emailField.value.trim() || !emailField.checkValidity()) {
-    document.getElementById("copy-status").textContent = "Saisissez une adresse e-mail valide.";
+    status.textContent = "Saisissez une adresse e-mail valide.";
     emailField.focus();
     return;
   }
-  const transcript = conversation
-    .map((m) => (m.role === "user" ? "VISITEUR : " : "ASSISTANT : ") + m.content)
-    .join("\n\n");
-  const recap = [
-    "DEMANDE DE CONTACT – NIPPON HÉRITAGE",
-    "Nom et prénom : " + nameField.value.trim(),
-    "Localisation : " + locationField.value.trim(),
-    "E-mail : " + emailField.value.trim(),
-    "Téléphone : " + (document.getElementById("phone").value.trim() || "Non communiqué"),
-    "",
-    "Échange :",
-    transcript || "Aucune conversation"
-  ].join("\n");
+  if (!consent.checked) {
+    status.textContent = "Votre accord est nécessaire pour transmettre la demande.";
+    consent.focus();
+    return;
+  }
+
+  copy.disabled = true;
+  status.textContent = "Envoi de votre demande…";
+  let accepted = false;
   try {
-    await navigator.clipboard.writeText(recap);
-    document.getElementById("copy-status").textContent = "Récapitulatif copié. Aucun e-mail n'a été envoyé.";
-  } catch {
-    document.getElementById("copy-status").textContent = "Copie impossible dans ce navigateur.";
+    const response = await fetch("/api/contact", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: nameField.value.trim(),
+        location: locationField.value.trim(),
+        email: emailField.value.trim(),
+        phone: phoneField.value.trim(),
+        website: document.getElementById("website").value,
+        consent: consent.checked,
+        messages: conversation
+      })
+    });
+    const data = await response.json();
+    if (!response.ok || data.sent !== true) {
+      throw new Error(data.error || "Votre demande n'a pas pu être envoyée.");
+    }
+    accepted = true;
+    status.textContent = "Demande acceptée pour envoi à Nippon Héritage et KERVENOA.";
+  } catch (error) {
+    status.textContent = error.message || "Envoi impossible. Réessayez ultérieurement.";
+  } finally {
+    if (!accepted) copy.disabled = false;
   }
 });
 </script>
