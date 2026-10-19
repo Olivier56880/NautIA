@@ -93,6 +93,10 @@ button:hover {
 .actions button {
     width: 100%;
 }
+
+#microphone[aria-pressed="true"] { background: #a72a39; }
+#microphone:disabled { opacity: .5; }
+.voice-status { padding: 0 15px 10px; font-size: 14px; color: #36465a; }
 </style>
 </head>
 
@@ -114,9 +118,11 @@ button:hover {
             placeholder="Écrivez votre message..."
             autocomplete="off"
         >
+        <button type="button" id="microphone" aria-label="Activer la dictée vocale" title="Dicter un message" hidden>🎤</button>
         <button type="submit">Envoyer</button>
     </form>
 
+    <div id="voice-status" class="voice-status" role="status" aria-live="polite"></div>
     <div class="actions" id="actions"></div>
 
 </div>
@@ -127,6 +133,53 @@ const messages = document.getElementById("messages");
 const formulaire = document.getElementById("formulaire");
 const reponse = document.getElementById("reponse");
 const actions = document.getElementById("actions");
+
+
+const microphone = document.getElementById("microphone");
+const voiceStatus = document.getElementById("voice-status");
+const SpeechRecognitionClass = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recognition = null;
+let listening = false;
+if (SpeechRecognitionClass) {
+    microphone.hidden = false;
+    recognition = new SpeechRecognitionClass();
+    recognition.lang = "fr-FR";
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.onstart = () => {
+        listening = true;
+        microphone.setAttribute("aria-pressed", "true");
+        microphone.textContent = "⏹";
+        voiceStatus.textContent = "Je vous écoute… Dictez votre message.";
+    };
+    recognition.onresult = (event) => {
+        const transcription = Array.from(event.results)
+            .map(result => result[0].transcript).join(" ").trim();
+        reponse.value = [reponse.value.trim(), transcription].filter(Boolean).join(" ");
+        voiceStatus.textContent = "Dictée terminée. Vérifiez votre message puis cliquez sur Envoyer.";
+        reponse.focus();
+    };
+    recognition.onerror = (event) => {
+        const messages = {
+            "not-allowed": "Autorisez le microphone dans les paramètres du navigateur.",
+            "audio-capture": "Aucun microphone accessible. Vérifiez votre casque ou microphone.",
+            "no-speech": "Aucune parole détectée. Cliquez sur le microphone pour réessayer."
+        };
+        voiceStatus.textContent = messages[event.error] || "Reconnaissance vocale indisponible. Réessayez.";
+    };
+    recognition.onend = () => {
+        listening = false;
+        microphone.setAttribute("aria-pressed", "false");
+        microphone.textContent = "🎤";
+    };
+    microphone.addEventListener("click", () => {
+        if (listening) { recognition.stop(); return; }
+        try { recognition.start(); }
+        catch (error) { voiceStatus.textContent = "Impossible de démarrer la dictée pour le moment."; }
+    });
+} else {
+    voiceStatus.textContent = "Dictée vocale non disponible sur ce navigateur.";
+}
 
 let etape = 0;
 
@@ -293,6 +346,7 @@ function terminerConversation() {
         "bot"
     );
 
+    if (recognition && listening) recognition.stop();
     formulaire.style.display = "none";
 
     const bouton = document.createElement("button");
