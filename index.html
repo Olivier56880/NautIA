@@ -122,7 +122,7 @@ button:hover {
         <button type="submit">Envoyer</button>
     </form>
 
-    <form id="coords" class="coords" hidden style="display:none" novalidate><h3>Vos coordonnées</h3><label for="client-nom">Nom et prénom</label><div class="field"><input id="client-nom" required><button type="button" class="mic-field" data-id="client-nom" hidden>🎤</button></div><label for="client-email">Adresse e-mail</label><div class="field"><input id="client-email" type="email" required><button type="button" class="mic-field" data-id="client-email" hidden>🎤</button></div><label for="client-tel">Téléphone (facultatif)</label><div class="field"><input id="client-tel" type="tel"><button type="button" class="mic-field" data-id="client-tel" hidden>🎤</button></div><p id="coord-error" role="alert" style="color:#a32636"></p><button type="submit">Valider mes coordonnées</button></form><div id="voice-status" class="voice-status" role="status" aria-live="polite"></div>
+    <form id="coords" class="coords" style="display:none" novalidate><h3>Vos coordonnées</h3><label for="client-nom">Nom et prénom</label><div class="field"><input id="client-nom" required><button type="button" class="mic-field" data-id="client-nom" hidden>🎤</button></div><label for="client-email">Adresse e-mail</label><div class="field"><input id="client-email" type="email" required><button type="button" class="mic-field" data-id="client-email" hidden>🎤</button></div><label for="client-tel">Téléphone (facultatif)</label><div class="field"><input id="client-tel" type="tel"><button type="button" class="mic-field" data-id="client-tel" hidden>🎤</button></div><p id="coord-error" role="alert" style="color:#a32636"></p><button type="submit">Valider mes coordonnées</button></form><div id="voice-status" class="voice-status" role="status" aria-live="polite"></div>
     <div class="actions" id="actions"></div>
 
 </div>
@@ -301,6 +301,7 @@ formulaire.addEventListener("submit", function(event) {
 
         formulaire.style.display = "none";
         document.getElementById("coords").style.display = "block";
+        document.getElementById("coords").scrollIntoView({behavior:"smooth",block:"center"});
         question("Merci. Complétez le formulaire de coordonnées ci-dessous. Chaque champ dispose de son microphone.");
 
     }
@@ -312,7 +313,7 @@ document.getElementById("coords").addEventListener("submit", function(event) {
     const email = document.getElementById("client-email").value.trim();
     const tel = document.getElementById("client-tel").value.trim();
     if (!nom || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        document.getElementById("coord-error").textContent = "Vérifiez votre nom et votre adresse e-mail (avec @ et un point).";
+        document.getElementById("coord-error").textContent = "Validation impossible : indiquez un nom et une adresse e-mail valide (exemple : nom@gmail.com).";
         return;
     }
     document.getElementById("coord-error").textContent = "";
@@ -320,7 +321,9 @@ document.getElementById("coords").addEventListener("submit", function(event) {
     donnees.email = email;
     donnees.telephone = tel || "Non communiqué";
     document.getElementById("coords").style.display = "none";
+    afficherMessage("Coordonnées validées. Voici votre récapitulatif :", "bot");
     terminerConversation();
+    messages.scrollIntoView({behavior:"smooth",block:"end"});
 });
 function terminerConversation() {
 
