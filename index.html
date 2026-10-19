@@ -65,7 +65,7 @@ form {
     border-top: 1px solid #ddd;
 }
 
-input {
+input, #reponse {
     flex: 1;
     min-width: 0;
     padding: 12px;
@@ -73,6 +73,8 @@ input {
     border-radius: 8px;
 }
 
+#reponse { resize: vertical; min-height: 110px; max-height: 280px; font: inherit; line-height: 1.45; box-sizing: border-box; }
+#formulaire { align-items: flex-end; }
 button {
     background: #172c46;
     color: white;
@@ -112,12 +114,13 @@ button:hover {
     <div class="messages" id="messages"></div>
 
     <form id="formulaire">
-        <input
+        <textarea
             id="reponse"
-            type="text"
-            placeholder="Écrivez votre message..."
-            autocomplete="off"
-        >
+            rows="5"
+            maxlength="5000"
+            placeholder="Décrivez votre demande en détail, sur plusieurs lignes..."
+            aria-label="Votre message"
+        ></textarea>
         <button type="button" id="microphone" aria-label="Activer la dictée vocale" title="Dicter un message" hidden>🎤</button>
         <button type="submit">Envoyer</button>
     </form>
