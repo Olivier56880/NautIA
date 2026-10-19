@@ -122,7 +122,7 @@ button:hover {
         <button type="submit">Envoyer</button>
     </form>
 
-    <form id="coords" class="coords" hidden style="display:none"><h3>Vos coordonnées</h3><label for="client-nom">Nom et prénom</label><div class="field"><input id="client-nom" required><button type="button" class="mic-field" data-id="client-nom" hidden>🎤</button></div><label for="client-email">Adresse e-mail</label><div class="field"><input id="client-email" type="email" required><button type="button" class="mic-field" data-id="client-email" hidden>🎤</button></div><label for="client-tel">Téléphone (facultatif)</label><div class="field"><input id="client-tel" type="tel"><button type="button" class="mic-field" data-id="client-tel" hidden>🎤</button></div><button type="submit">Valider mes coordonnées</button></form><div id="voice-status" class="voice-status" role="status" aria-live="polite"></div>
+    <form id="coords" class="coords" hidden style="display:none" novalidate><h3>Vos coordonnées</h3><label for="client-nom">Nom et prénom</label><div class="field"><input id="client-nom" required><button type="button" class="mic-field" data-id="client-nom" hidden>🎤</button></div><label for="client-email">Adresse e-mail</label><div class="field"><input id="client-email" type="email" required><button type="button" class="mic-field" data-id="client-email" hidden>🎤</button></div><label for="client-tel">Téléphone (facultatif)</label><div class="field"><input id="client-tel" type="tel"><button type="button" class="mic-field" data-id="client-tel" hidden>🎤</button></div><p id="coord-error" role="alert" style="color:#a32636"></p><button type="submit">Valider mes coordonnées</button></form><div id="voice-status" class="voice-status" role="status" aria-live="polite"></div>
     <div class="actions" id="actions"></div>
 
 </div>
@@ -311,10 +311,11 @@ document.getElementById("coords").addEventListener("submit", function(event) {
     const nom = document.getElementById("client-nom").value.trim();
     const email = document.getElementById("client-email").value.trim();
     const tel = document.getElementById("client-tel").value.trim();
-    if (!nom || !/^[^\s@]+@[^\s@]+\\.[^\s@]+$/.test(email)) {
-        voiceStatus.textContent = "Vérifiez votre nom et votre adresse e-mail.";
+    if (!nom || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        document.getElementById("coord-error").textContent = "Vérifiez votre nom et votre adresse e-mail (avec @ et un point).";
         return;
     }
+    document.getElementById("coord-error").textContent = "";
     donnees.nom = nom;
     donnees.email = email;
     donnees.telephone = tel || "Non communiqué";
