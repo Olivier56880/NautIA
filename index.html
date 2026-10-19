@@ -315,7 +315,7 @@ formulaire.addEventListener("submit", async function(event) {
   question(data.reply);
   if(data.done){
    formulaire.style.display="none";
-   if(clientSlug!=="nippon-heritage") question("Mode démonstration : remplissez la fiche pour voir le récapitulatif. Aucun e-mail ne sera envoyé.");
+   if(clientSlug==="armel-nautic") question("Mode démonstration : la demande sera envoyée uniquement à KERVENOA, jamais au chantier Armel Nautic.");
    document.getElementById("coords").style.display="block";
    document.getElementById("coords").scrollIntoView({behavior:"smooth",block:"center"});
   }else questionsPosees++;
@@ -339,11 +339,6 @@ document.getElementById("coords").addEventListener("submit", async function(even
     donnees.nom = nom;
     donnees.email = email;
     donnees.telephone = tel || "Non communiqué";
-    if(clientSlug!=="nippon-heritage") {
-        document.getElementById("coords").style.display = "none";
-        terminerConversation(false);
-        return;
-    }
     const button = document.querySelector('#coords button[type="submit"]');
     button.disabled = true;
     button.textContent = "Envoi en cours…";
@@ -353,7 +348,7 @@ document.getElementById("coords").addEventListener("submit", async function(even
         const res = await fetch("https://nautia.vercel.app/api/send", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ...donnees, website: "" })
+            body: JSON.stringify({ ...donnees, client: clientSlug, website: "" })
         });
         const answer = await res.json();
         if (!res.ok || !answer.ok) throw new Error(answer.error || "Échec de l'envoi.");
@@ -382,7 +377,7 @@ function terminerConversation(envoye = false) {
         "Merci pour votre demande !\n\n" +
         "Voici le récapitulatif des informations recueillies :\n\n" +
         resume +
-        (envoye ? "\n\nVotre demande a été transmise à Nippon Héritage et à KERVENOA." : "\n\nVotre demande n’a pas été envoyée."),
+        (envoye ? (clientSlug === "armel-nautic" ? "\n\nDemande de test transmise uniquement à KERVENOA. Aucun envoi à Armel Nautic." : "\n\nVotre demande a été transmise aux destinataires configurés.") : "\n\nVotre demande n’a pas été envoyée."),
         "bot"
     );
 
