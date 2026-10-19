@@ -307,7 +307,7 @@ formulaire.addEventListener("submit", function(event) {
     }
 });
 
-document.getElementById("coords").addEventListener("submit", function(event) {
+document.getElementById("coords").addEventListener("submit", async function(event) {
     event.preventDefault();
     const nom = document.getElementById("client-nom").value.trim();
     const email = document.getElementById("client-email").value.trim();
@@ -320,12 +320,30 @@ document.getElementById("coords").addEventListener("submit", function(event) {
     donnees.nom = nom;
     donnees.email = email;
     donnees.telephone = tel || "Non communiqué";
-    document.getElementById("coords").style.display = "none";
-    afficherMessage("Coordonnées validées. Voici votre récapitulatif :", "bot");
-    terminerConversation();
-    messages.scrollIntoView({behavior:"smooth",block:"end"});
+    const button = document.querySelector('#coords button[type="submit"]');
+    button.disabled = true;
+    button.textContent = "Envoi en cours…";
+    const status = document.getElementById("coord-error");
+    status.textContent = "Transmission sécurisée de votre demande…";
+    try {
+        const res = await fetch("https://nautia.vercel.app/api/send", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...donnees, website: "" })
+        });
+        const answer = await res.json();
+        if (!res.ok || !answer.ok) throw new Error(answer.error || "Échec de l'envoi.");
+        document.getElementById("coords").style.display = "none";
+        terminerConversation(true);
+        messages.scrollIntoView({ behavior: "smooth", block: "end" });
+    } catch(error) {
+        status.textContent = "Envoi non confirmé : " + error.message + " Vous pouvez réessayer sans ressaisir vos coordonnées.";
+    } finally {
+        button.disabled = false;
+        button.textContent = "Valider mes coordonnées";
+    }
 });
-function terminerConversation() {
+function terminerConversation(envoye = false) {
 
     const resume =
         "DEMANDE NIPPON HÉRITAGE\n\n" +
@@ -340,8 +358,7 @@ function terminerConversation() {
         "Merci pour votre demande !\n\n" +
         "Voici le récapitulatif des informations recueillies :\n\n" +
         resume +
-        "\n\nCe chatbot est actuellement en phase de test. " +
-        "Votre demande n'a pas encore été transmise à Nippon Héritage.",
+        (envoye ? "\n\nVotre demande a été transmise à Nippon Héritage et à SERVIQIA." : "\n\nVotre demande n’a pas été envoyée."),
         "bot"
     );
 
