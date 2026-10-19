@@ -97,7 +97,7 @@ button:hover {
 #microphone[aria-pressed="true"] { background: #a72a39; }
 #microphone:disabled { opacity: .5; }
 .voice-status { padding: 0 15px 10px; font-size: 14px; color: #36465a; }
-</style>
+.coords { padding: 16px; border-top: 1px solid #ddd; } .coords label {display:block;margin:8px 0 4px;font-weight:bold;} .field {display:flex;gap:8px;} .field input{flex:1;} .coords button[type=submit]{margin-top:12px;width:100%;}</style>
 </head>
 
 <body>
@@ -122,7 +122,7 @@ button:hover {
         <button type="submit">Envoyer</button>
     </form>
 
-    <div id="voice-status" class="voice-status" role="status" aria-live="polite"></div>
+    <form id="coords" class="coords" hidden style="display:none"><h3>Vos coordonnées</h3><label for="client-nom">Nom et prénom</label><div class="field"><input id="client-nom" required><button type="button" class="mic-field" data-id="client-nom" hidden>🎤</button></div><label for="client-email">Adresse e-mail</label><div class="field"><input id="client-email" type="email" required><button type="button" class="mic-field" data-id="client-email" hidden>🎤</button></div><label for="client-tel">Téléphone (facultatif)</label><div class="field"><input id="client-tel" type="tel"><button type="button" class="mic-field" data-id="client-tel" hidden>🎤</button></div><button type="submit">Valider mes coordonnées</button></form><div id="voice-status" class="voice-status" role="status" aria-live="polite"></div>
     <div class="actions" id="actions"></div>
 
 </div>
@@ -140,6 +140,7 @@ const voiceStatus = document.getElementById("voice-status");
 const SpeechRecognitionClass = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognition = null;
 let listening = false;
+let voiceTarget = reponse;
 if (SpeechRecognitionClass) {
     microphone.hidden = false;
     recognition = new SpeechRecognitionClass();
@@ -155,9 +156,11 @@ if (SpeechRecognitionClass) {
     recognition.onresult = (event) => {
         const transcription = Array.from(event.results)
             .map(result => result[0].transcript).join(" ").trim();
-        reponse.value = [reponse.value.trim(), transcription].filter(Boolean).join(" ");
-        voiceStatus.textContent = "Dictée terminée. Vérifiez votre message puis cliquez sur Envoyer.";
-        reponse.focus();
+        let value = transcription;
+        if (voiceTarget.id === "client-email") value = transcription.toLowerCase().replace(/\\s*(?:arobase|arrobase)\\s*/gi,"@").replace(/\\s+point\\s+/gi,".").replace(/\\s+/g,"");
+        voiceTarget.value = [voiceTarget.value.trim(), value].filter(Boolean).join(voiceTarget.id === "client-email" ? "" : " ");
+        voiceStatus.textContent = "Dictée terminée. Vérifiez le texte avant de valider.";
+        voiceTarget.focus();
     };
     recognition.onerror = (event) => {
         const messages = {
@@ -172,7 +175,16 @@ if (SpeechRecognitionClass) {
         microphone.setAttribute("aria-pressed", "false");
         microphone.textContent = "🎤";
     };
+    document.querySelectorAll(".mic-field").forEach(button => {
+        button.hidden = false;
+        button.addEventListener("click", () => {
+            voiceTarget = document.getElementById(button.dataset.id);
+            if (listening) recognition.stop();
+            else try { recognition.start(); } catch(e) { voiceStatus.textContent = "Microphone indisponible."; }
+        });
+    });
     microphone.addEventListener("click", () => {
+        voiceTarget = reponse;
         if (listening) { recognition.stop(); return; }
         try { recognition.start(); }
         catch (error) { voiceStatus.textContent = "Impossible de démarrer la dictée pour le moment."; }
@@ -188,7 +200,8 @@ const donnees = {
     modele: "",
     precisions: "",
     email: "",
-    telephone: ""
+    telephone: "",
+    nom: ""
 };
 
 function afficherMessage(texte, type) {
@@ -236,15 +249,6 @@ formulaire.addEventListener("submit", function(event) {
     if (!texte && (etape === 0 || etape === 3)) {
         question("Merci de renseigner ce champ pour continuer.");
         return;
-    }
-
-    if (etape === 3) {
-        const emailValide = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(texte);
-
-        if (!emailValide) {
-            question("Pouvez-vous saisir une adresse e-mail valide ?");
-            return;
-        }
     }
 
     afficherMessage(texte || "Passer", "client");
@@ -295,38 +299,28 @@ formulaire.addEventListener("submit", function(event) {
             ? "Aucune précision supplémentaire"
             : texte;
 
-        etape = 3;
-        reponse.type = "email";
+        formulaire.style.display = "none";
+        document.getElementById("coords").style.display = "block";
+        question("Merci. Complétez le formulaire de coordonnées ci-dessous. Chaque champ dispose de son microphone.");
 
-        question(
-            "Merci, j'ai les informations concernant votre demande.\n\n" +
-            "Pour que Nippon Héritage puisse vous répondre, " +
-            "quelle est votre adresse e-mail ?"
-        );
-
-    } else if (etape === 3) {
-
-        donnees.email = texte;
-
-        etape = 4;
-        reponse.type = "tel";
-
-        question(
-            "Merci !\n\n" +
-            "Souhaitez-vous également laisser un numéro de téléphone ?\n\n" +
-            "C'est facultatif. Vous pouvez écrire « passer »."
-        );
-
-    } else if (etape === 4) {
-
-        donnees.telephone = estVideOuPasse(texte)
-            ? "Non communiqué"
-            : texte;
-
-        terminerConversation();
     }
 });
 
+document.getElementById("coords").addEventListener("submit", function(event) {
+    event.preventDefault();
+    const nom = document.getElementById("client-nom").value.trim();
+    const email = document.getElementById("client-email").value.trim();
+    const tel = document.getElementById("client-tel").value.trim();
+    if (!nom || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+        voiceStatus.textContent = "Vérifiez votre nom et votre adresse e-mail.";
+        return;
+    }
+    donnees.nom = nom;
+    donnees.email = email;
+    donnees.telephone = tel || "Non communiqué";
+    document.getElementById("coords").style.display = "none";
+    terminerConversation();
+});
 function terminerConversation() {
 
     const resume =
@@ -334,6 +328,7 @@ function terminerConversation() {
         "Demande : " + donnees.demande + "\n\n" +
         "Moto : " + donnees.modele + "\n\n" +
         "Précisions : " + donnees.precisions + "\n\n" +
+        "Nom : " + donnees.nom + "\n" +
         "E-mail : " + donnees.email + "\n" +
         "Téléphone : " + donnees.telephone;
 
