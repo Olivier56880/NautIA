@@ -52,7 +52,6 @@ export default {
       'Téléphone : ' + (telephone || 'Non communiqué'), '',
       'Objet : ' + (modele || 'Non précisé'), 'Travaux demandés : ' + (precisions || demande),
       ...(details ? ['Informations utiles : ' + details] : []),
-      ...(messagesClient.length ? ['', 'DEMANDES ET PRÉCISIONS ORIGINALES DU VISITEUR (à vérifier avant devis) :', ...messagesClient.map((msg, i) => (i+1)+'. '+msg)] : []),
       ...(kilometrage ? ['Kilométrage : ' + kilometrage] : []),
       ...(immobilisation ? ['Immobilisation : ' + immobilisation] : []),
       ...(derniereRevision ? ['Dernière révision : ' + derniereRevision] : []),
