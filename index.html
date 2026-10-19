@@ -348,7 +348,7 @@ document.getElementById("coords").addEventListener("submit", async function(even
         const res = await fetch("https://nautia.vercel.app/api/send", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ...donnees, client: clientSlug, website: "" })
+            body: JSON.stringify({ ...donnees, client: clientSlug, messagesClient: historique.filter(m => m.role === "user").map(m => m.content).slice(0, 24), website: "" })
         });
         const answer = await res.json();
         if (!res.ok || !answer.ok) throw new Error(answer.error || "Échec de l'envoi.");
@@ -368,6 +368,7 @@ function terminerConversation(envoye = false) {
         "DEMANDE " + companyName.toUpperCase() + "\n\n" +
         "Objet : " + (donnees.modele || "Non précisé") + "\n" +
         "Travaux demandés : " + (donnees.precisions || donnees.demande) + "\n" +
+        "Demandes exprimées par le visiteur :\n" + historique.filter(m => m.role === "user").map(m => "• " + m.content).join("\n") + "\n" +
         (donnees.details ? "Informations utiles : " + donnees.details + "\n" : "") +
         "\nNom : " + donnees.nom + "\n" +
         "E-mail : " + donnees.email + "\n" +
