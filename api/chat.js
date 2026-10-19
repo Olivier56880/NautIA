@@ -18,7 +18,7 @@ export default {
   if(!process.env.OPENAI_API_KEY) return reply(503,{error:"OpenAI non configuré dans Vercel"},origin);
   let body; try{body=await request.json()}catch{return reply(400,{error:"Données invalides"},origin)}
   const hist=Array.isArray(body.messages)?body.messages.slice(-30):[];
-  if(!hist.length||hist.some(m=>!["user","assistant"].includes(m.role)||typeof m.content!=="string"||m.content.length>1200))
+  if(!hist.length||hist.some(m=>!["user","assistant"].includes(m.role)||typeof m.content!=="string"||m.content.length>5000))
    return reply(400,{error:"Conversation invalide"},origin);
   const slug=typeof body.client==="string"?body.client:"nippon-heritage";
   if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)||slug.length>80)return reply(400,{error:"Identifiant client invalide"},origin);
