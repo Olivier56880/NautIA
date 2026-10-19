@@ -204,6 +204,27 @@ const donnees = {
     nom: ""
 };
 
+
+function nettoyerModele(texte) {
+    if (!texte || texte === "Non précisé" || texte === "Indiqué dans la demande") return texte;
+    let resultat = texte.trim()
+        .replace(/^(?:il s['’]agit d['’]une?|c['’]est une?|la moto (?:est|concernée est)|j['’]ai une?|je possède une?)\s+/i, "")
+        .replace(/^(?:une?|d['’]une?)\s+/i, "")
+        .replace(/[.!?]+$/g, "").trim();
+    // Conserver la marque, le modèle et le millésime, sans inventer de caractéristiques.
+    resultat = resultat.replace(/\b(?:de|du|en|année)\s+(19\d{2}|20\d{2})\b/gi, "$1");
+    return resultat || texte;
+}
+function nettoyerPrestation(texte) {
+    if (!texte || texte === "Aucune précision supplémentaire") return texte;
+    let resultat = texte.trim().replace(/[.!?]+$/g, "")
+        .replace(/^(?:je (?:voudrais|souhaite|veux|désire)(?: faire| effectuer)?|j['’]aimerais|il faudrait|pouvez-vous|merci de|faire|effectuer)\s+/i, "")
+        .replace(/^(?:faire|effectuer|réaliser|procéder à)\s+/i, "")
+        .replace(/^(?:la|le|les|sa|son|ses|une|un)\s+/i, "");
+    if (/^r[eé]vision annuelle$/i.test(resultat)) return "Révision annuelle";
+    return resultat ? resultat.charAt(0).toUpperCase() + resultat.slice(1) : texte;
+}
+
 function afficherMessage(texte, type) {
     const message = document.createElement("div");
 
@@ -259,7 +280,7 @@ formulaire.addEventListener("submit", function(event) {
         donnees.demande = texte;
 
         if (modeleDejaMentionne(texte)) {
-            donnees.modele = "Indiqué dans la demande";
+            donnees.modele = nettoyerModele(texte);
             etape = 2;
 
             question(
@@ -283,7 +304,7 @@ formulaire.addEventListener("submit", function(event) {
 
         donnees.modele = estVideOuPasse(texte)
             ? "Non précisé"
-            : texte;
+            : nettoyerModele(texte);
 
         etape = 2;
 
@@ -297,7 +318,7 @@ formulaire.addEventListener("submit", function(event) {
 
         donnees.precisions = estVideOuPasse(texte)
             ? "Aucune précision supplémentaire"
-            : texte;
+            : nettoyerPrestation(texte);
 
         formulaire.style.display = "none";
         document.getElementById("coords").style.display = "block";
@@ -349,7 +370,7 @@ function terminerConversation(envoye = false) {
         "DEMANDE NIPPON HÉRITAGE\n\n" +
         "Demande : " + donnees.demande + "\n\n" +
         "Moto : " + donnees.modele + "\n\n" +
-        "Précisions : " + donnees.precisions + "\n\n" +
+        "Travaux demandés : " + donnees.precisions + "\n\n" +
         "Nom : " + donnees.nom + "\n" +
         "E-mail : " + donnees.email + "\n" +
         "Téléphone : " + donnees.telephone;
