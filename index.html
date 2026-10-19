@@ -129,14 +129,19 @@ button:hover {
 
 <script>
 
-// Premier lien personnalisé : le moteur reste associé à Nippon Héritage
-// tant que la configuration multi-clients Supabase n'est pas raccordée.
-const clientSlug = new URLSearchParams(window.location.search).get("client");
-if (clientSlug && clientSlug !== "nippon-heritage") {
-    document.querySelector(".chatbot").innerHTML = '<div class="header"><h2>Assistant indisponible</h2></div><p style="padding:20px">Ce lien ne correspond à aucune entreprise configurée. Veuillez contacter l’entreprise qui vous a transmis ce lien.</p>';
-    throw new Error("Identifiant client inconnu");
-}
-
+const clientSlug = new URLSearchParams(location.search).get("client") || "nippon-heritage";
+let companyName = "";
+let clientReady = false;
+const configPromise = (async () => {
+ const resp = await fetch("https://obvzuccjxgjlaieghmxm.supabase.co/functions/v1/kervenoa-chat-config?client="+encodeURIComponent(clientSlug));
+ if(!resp.ok) throw Error("Lien client inconnu ou indisponible");
+ const data = await resp.json();
+ if(data.slug!==clientSlug || !data.companyName) throw Error("Configuration incorrecte");
+ companyName=data.companyName;
+ document.querySelector(".header h2").textContent=companyName;
+ document.title=companyName+" - Assistant virtuel";
+ return data;
+})();
 const messages = document.getElementById("messages");
 const formulaire = document.getElementById("formulaire");
 const reponse = document.getElementById("reponse");
@@ -270,10 +275,15 @@ function modeleDejaMentionne(texte) {
     return modeles.some(modele => modele.test(texte));
 }
 
-question(
-    "Bonjour et bienvenue chez Nippon Héritage !\n\n" +
-    "En quoi puis-je vous aider aujourd'hui ?"
-);
+reponse.disabled = true;
+configPromise.then(() => {
+ clientReady=true;
+ reponse.disabled=false;
+ question("Bonjour et bienvenue chez "+companyName+" !\\n\\nEn quoi puis-je vous aider aujourd'hui ?");
+}).catch(() => {
+ question("Ce lien client n'est pas disponible pour le moment. Veuillez vérifier l'adresse.");
+ formulaire.style.display="none";
+});
 
 const historique = [];
 let questionsPosees = 0;
@@ -281,7 +291,7 @@ let enCours = false;
 formulaire.addEventListener("submit", async function(event) {
  event.preventDefault();
  const texte = reponse.value.trim();
- if (!texte || enCours) return;
+ if (!texte || enCours || !clientReady) return;
  enCours = true;
  const envoyer = formulaire.querySelector('button[type="submit"]');
  envoyer.disabled = true;
@@ -290,7 +300,7 @@ formulaire.addEventListener("submit", async function(event) {
  try {
   const result=await fetch("https://nautia.vercel.app/api/chat",{
    method:"POST", headers:{"Content-Type":"application/json"},
-   body:JSON.stringify({messages:prochainHistorique,questionsAsked:questionsPosees})
+   body:JSON.stringify({client:clientSlug,messages:prochainHistorique,questionsAsked:questionsPosees})
   });
   const data=await result.json();
   if(!result.ok||!data.ok)throw new Error(data.error||"Réponse indisponible");
@@ -305,6 +315,7 @@ formulaire.addEventListener("submit", async function(event) {
   question(data.reply);
   if(data.done){
    formulaire.style.display="none";
+   if(clientSlug!=="nippon-heritage") { question("Mode démonstration : aucune demande ne sera envoyée à "+companyName+"."); return; }
    document.getElementById("coords").style.display="block";
    document.getElementById("coords").scrollIntoView({behavior:"smooth",block:"center"});
   }else questionsPosees++;
@@ -317,6 +328,7 @@ formulaire.addEventListener("submit", async function(event) {
 
 document.getElementById("coords").addEventListener("submit", async function(event) {
     event.preventDefault();
+    if(clientSlug!=="nippon-heritage") return;
     const nom = document.getElementById("client-nom").value.trim();
     const email = document.getElementById("client-email").value.trim();
     const tel = document.getElementById("client-tel").value.trim();
