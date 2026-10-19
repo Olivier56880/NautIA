@@ -129,6 +129,14 @@ button:hover {
 
 <script>
 
+// Premier lien personnalisé : le moteur reste associé à Nippon Héritage
+// tant que la configuration multi-clients Supabase n'est pas raccordée.
+const clientSlug = new URLSearchParams(window.location.search).get("client");
+if (clientSlug && clientSlug !== "nippon-heritage") {
+    document.querySelector(".chatbot").innerHTML = '<div class="header"><h2>Assistant indisponible</h2></div><p style="padding:20px">Ce lien ne correspond à aucune entreprise configurée. Veuillez contacter l’entreprise qui vous a transmis ce lien.</p>';
+    throw new Error("Identifiant client inconnu");
+}
+
 const messages = document.getElementById("messages");
 const formulaire = document.getElementById("formulaire");
 const reponse = document.getElementById("reponse");
