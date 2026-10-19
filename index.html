@@ -161,22 +161,25 @@ if (SpeechRecognitionClass) {
     microphone.hidden = false;
     recognition = new SpeechRecognitionClass();
     recognition.lang = "fr-FR";
-    recognition.continuous = false;
-    recognition.interimResults = false;
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    let voiceBase = "";
+    let lastTranscript = "";
     recognition.onstart = () => {
         listening = true;
+        voiceBase = voiceTarget.value.trim();
+        lastTranscript = "";
         microphone.setAttribute("aria-pressed", "true");
         microphone.textContent = "⏹";
-        voiceStatus.textContent = "Je vous écoute… Dictez votre message.";
+        voiceStatus.textContent = "Dictée en cours… Parlez librement, puis appuyez sur ⏹ pour terminer.";
     };
     recognition.onresult = (event) => {
-        const transcription = Array.from(event.results)
-            .map(result => result[0].transcript).join(" ").trim();
+        const transcription = Array.from(event.results).map(result => result[0].transcript).join(" ").trim();
+        lastTranscript = transcription;
         let value = transcription;
-        if (voiceTarget.id === "client-email") value = transcription.toLowerCase().replace(/\s*(?:arobase|arrobase)\s*/gi,"@").replace(/\s+point\s+/gi,".").replace(/\s+/g,"");
-        voiceTarget.value = [voiceTarget.value.trim(), value].filter(Boolean).join(voiceTarget.id === "client-email" ? "" : " ");
-        voiceStatus.textContent = "Dictée terminée. Vérifiez le texte avant de valider.";
-        voiceTarget.focus();
+        if (voiceTarget.id === "client-email") value = value.toLowerCase().replace(/\\s*(?:arobase|arrobase)\\s*/gi,"@").replace(/\\s+point\\s+/gi,".").replace(/\\s+/g,"");
+        voiceTarget.value = [voiceBase, value].filter(Boolean).join(voiceTarget.id === "client-email" ? "" : " ");
+        voiceStatus.textContent = "Dictée en cours… Appuyez sur ⏹ lorsque vous avez terminé.";
     };
     recognition.onerror = (event) => {
         const messages = {
