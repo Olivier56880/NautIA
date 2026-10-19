@@ -46,12 +46,13 @@ export default {
     const messagesClient = Array.isArray(body.messagesClient) ? body.messagesClient.slice(0, 24).filter(x => typeof x === 'string').map(x => x.trim().slice(0, 800)).filter(Boolean) : [];
     if (messagesClient.join('').length > 10000) return response(413, { error: 'Conversation trop longue pour l’envoi.' }, origin);
     if (!process.env.RESEND_API_KEY) return response(503, { error: "Envoi non configuré." }, origin);
+    const normaliserMarque = (valeur) => isArmel ? valeur.replace(/\b(?:jeannot|janot|jeano|jeannau|jeaneau)\b/gi, 'Jeanneau') : valeur;
     const lines = [
       (isArmel ? 'TEST KERVENOA - DEMANDE ARMEL NAUTIC - NE PAS TRANSMETTRE AU CHANTIER' : 'DEMANDE NIPPON HÉRITAGE'), '',
       'Nom : ' + nom, 'Adresse e-mail : ' + email,
       'Téléphone : ' + (telephone || 'Non communiqué'), '',
-      'Objet : ' + (modele || 'Non précisé'), 'Travaux demandés : ' + (precisions || demande),
-      ...(details ? ['Informations utiles : ' + details] : []),
+      'Objet : ' + normaliserMarque(modele || 'Non précisé'), 'Travaux demandés : ' + normaliserMarque(precisions || demande),
+      ...(details ? ['Informations utiles : ' + normaliserMarque(details)] : []),
       ...(kilometrage ? ['Kilométrage : ' + kilometrage] : []),
       ...(immobilisation ? ['Immobilisation : ' + immobilisation] : []),
       ...(derniereRevision ? ['Dernière révision : ' + derniereRevision] : []),
