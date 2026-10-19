@@ -33,7 +33,9 @@ export default {
     const clean = (value, max) => typeof value === 'string' ? value.trim().slice(0, max) : '';
     const nom = clean(body.nom, 150), email = clean(body.email, 254),
       telephone = clean(body.telephone, 80), demande = clean(body.demande, 3000),
-      modele = clean(body.modele, 300), precisions = clean(body.precisions, 3000);
+      modele = clean(body.modele, 300), precisions = clean(body.precisions, 3000),
+      kilometrage = clean(body.kilometrage, 100), immobilisation = clean(body.immobilisation, 150),
+      derniereRevision = clean(body.derniereRevision, 150), problemes = clean(body.problemes, 1000);
     if (!nom || !demande || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return response(400, { error: 'Nom, demande et adresse e-mail valide obligatoires.' }, origin);
     }
@@ -42,7 +44,11 @@ export default {
       'DEMANDE NIPPON HÉRITAGE', '',
       'Nom : ' + nom, 'Adresse e-mail : ' + email,
       'Téléphone : ' + (telephone || 'Non communiqué'), '',
-      'Demande : ' + demande, 'Moto : ' + modele, 'Travaux demandés : ' + precisions
+      'Demande : ' + demande, 'Moto : ' + modele, 'Travaux demandés : ' + precisions,
+      'Kilométrage : ' + kilometrage,
+      'Immobilisation : ' + immobilisation,
+      'Dernière révision : ' + derniereRevision,
+      'Problèmes signalés : ' + problemes
     ];
     let result;
     try {
