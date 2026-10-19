@@ -177,6 +177,7 @@ if (SpeechRecognitionClass) {
         const transcription = Array.from(event.results).map(result => result[0].transcript).join(" ").trim();
         lastTranscript = transcription;
         let value = transcription;
+        if (voiceTarget.id === "reponse") value = value.replace(/\b(?:jeannot|janot|jeano|jeannau|jeaneau)\b/gi, "Jeanneau");
         if (voiceTarget.id === "client-email") value = value.toLowerCase().replace(/\\s*(?:arobase|arrobase)\\s*/gi,"@").replace(/\\s+point\\s+/gi,".").replace(/\\s+/g,"");
         voiceTarget.value = [voiceBase, value].filter(Boolean).join(voiceTarget.id === "client-email" ? "" : " ");
         voiceStatus.textContent = "Dictée en cours… Appuyez sur ⏹ lorsque vous avez terminé.";
@@ -315,7 +316,7 @@ formulaire.addEventListener("submit", async function(event) {
   historique.push({role:"user",content:texte},{role:"assistant",content:data.reply});
   if(!donnees.demande)donnees.demande=texte;
   donnees.demande=data.summary?.demande||donnees.demande;
-  donnees.modele=data.summary?.objet||donnees.modele;
+  donnees.modele=(data.summary?.objet||donnees.modele).replace(/\b(?:jeannot|janot|jeano|jeannau|jeaneau)\b/gi, "Jeanneau");
   donnees.precisions=data.summary?.travaux||donnees.precisions;
   donnees.details=data.summary?.details||donnees.details;
   question(data.reply);
