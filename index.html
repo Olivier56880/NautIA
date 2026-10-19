@@ -157,7 +157,7 @@ if (SpeechRecognitionClass) {
         const transcription = Array.from(event.results)
             .map(result => result[0].transcript).join(" ").trim();
         let value = transcription;
-        if (voiceTarget.id === "client-email") value = transcription.toLowerCase().replace(/\\s*(?:arobase|arrobase)\\s*/gi,"@").replace(/\\s+point\\s+/gi,".").replace(/\\s+/g,"");
+        if (voiceTarget.id === "client-email") value = transcription.toLowerCase().replace(/\s*(?:arobase|arrobase)\s*/gi,"@").replace(/\s+point\s+/gi,".").replace(/\s+/g,"");
         voiceTarget.value = [voiceTarget.value.trim(), value].filter(Boolean).join(voiceTarget.id === "client-email" ? "" : " ");
         voiceStatus.textContent = "Dictée terminée. Vérifiez le texte avant de valider.";
         voiceTarget.focus();
@@ -311,7 +311,7 @@ document.getElementById("coords").addEventListener("submit", function(event) {
     const nom = document.getElementById("client-nom").value.trim();
     const email = document.getElementById("client-email").value.trim();
     const tel = document.getElementById("client-tel").value.trim();
-    if (!nom || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+    if (!nom || !/^[^\s@]+@[^\s@]+\\.[^\s@]+$/.test(email)) {
         voiceStatus.textContent = "Vérifiez votre nom et votre adresse e-mail.";
         return;
     }
