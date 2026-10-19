@@ -374,7 +374,6 @@ function terminerConversation(envoye = false) {
         "DEMANDE " + companyName.toUpperCase() + "\n\n" +
         "Objet : " + (donnees.modele || "Non précisé") + "\n" +
         "Travaux demandés : " + (donnees.precisions || donnees.demande) + "\n" +
-        "Demandes exprimées par le visiteur :\n" + historique.filter(m => m.role === "user").map(m => "• " + m.content).join("\n") + "\n" +
         (donnees.details ? "Informations utiles : " + donnees.details + "\n" : "") +
         "\nNom : " + donnees.nom + "\n" +
         "E-mail : " + donnees.email + "\n" +
