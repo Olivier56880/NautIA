@@ -27,7 +27,7 @@ export default {
     }
     if (request.method !== 'POST') return response(405, { error: 'Méthode non autorisée' }, origin);
     if (!ALLOWED_ORIGINS.has(origin)) return response(403, { error: 'Origine refusée' }, origin);
-    if (Number(request.headers.get('content-length') || 0) > 12000) return response(413, { error: 'Demande trop longue' }, origin);
+    if (Number(request.headers.get('content-length') || 0) > 28000) return response(413, { error: 'Demande trop longue' }, origin);
     let body;
     try { body = await request.json(); } catch { return response(400, { error: 'Données incorrectes' }, origin); }
     if (body.website) return response(200, { ok: true }, origin);
@@ -43,6 +43,8 @@ export default {
     if (!nom || !demande || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return response(400, { error: 'Nom, demande et adresse e-mail valide obligatoires.' }, origin);
     }
+    const messagesClient = Array.isArray(body.messagesClient) ? body.messagesClient.slice(0, 24).filter(x => typeof x === 'string').map(x => x.trim().slice(0, 800)).filter(Boolean) : [];
+    if (messagesClient.join('').length > 10000) return response(413, { error: 'Conversation trop longue pour l’envoi.' }, origin);
     if (!process.env.RESEND_API_KEY) return response(503, { error: "Envoi non configuré." }, origin);
     const lines = [
       (isArmel ? 'TEST KERVENOA - DEMANDE ARMEL NAUTIC - NE PAS TRANSMETTRE AU CHANTIER' : 'DEMANDE NIPPON HÉRITAGE'), '',
@@ -50,6 +52,7 @@ export default {
       'Téléphone : ' + (telephone || 'Non communiqué'), '',
       'Objet : ' + (modele || 'Non précisé'), 'Travaux demandés : ' + (precisions || demande),
       ...(details ? ['Informations utiles : ' + details] : []),
+      ...(messagesClient.length ? ['', 'DEMANDES ET PRÉCISIONS ORIGINALES DU VISITEUR (à vérifier avant devis) :', ...messagesClient.map((msg, i) => (i+1)+'. '+msg)] : []),
       ...(kilometrage ? ['Kilométrage : ' + kilometrage] : []),
       ...(immobilisation ? ['Immobilisation : ' + immobilisation] : []),
       ...(derniereRevision ? ['Dernière révision : ' + derniereRevision] : []),
