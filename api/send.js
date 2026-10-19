@@ -42,7 +42,7 @@ export default {
       'DEMANDE NIPPON HÉRITAGE', '',
       'Nom : ' + nom, 'Adresse e-mail : ' + email,
       'Téléphone : ' + (telephone || 'Non communiqué'), '',
-      'Demande : ' + demande, 'Moto : ' + modele, 'Précisions : ' + precisions
+      'Demande : ' + demande, 'Moto : ' + modele, 'Travaux demandés : ' + precisions
     ];
     let result;
     try {
