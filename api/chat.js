@@ -28,7 +28,7 @@ Si done=false, reply doit contenir exactement une question pertinente, summary p
   try{
    upstream=await fetch("https://api.openai.com/v1/responses",{
     method:"POST",headers:{"Authorization":"Bearer "+process.env.OPENAI_API_KEY,"Content-Type":"application/json"},
-    body:JSON.stringify({model:"gpt-4.1-mini",instructions,input:hist,max_output_tokens:430,store:false,text:{format:{type:"json_object"}}}),
+    body:JSON.stringify({model:"gpt-4.1-mini",instructions,input:[{role:"developer",content:"Réponds uniquement avec un objet JSON valide."},...hist],max_output_tokens:430,store:false,text:{format:{type:"json_object"}}}),
     signal:AbortSignal.timeout(22000)
    });
   }catch{return reply(502,{error:"OpenAI temporairement indisponible. Réessayez."},origin)}
