@@ -34,7 +34,7 @@ export default {
     const nom = clean(body.nom, 150), email = clean(body.email, 254),
       telephone = clean(body.telephone, 80), demande = clean(body.demande, 3000),
       modele = clean(body.modele, 300), precisions = clean(body.precisions, 3000);
-    if (!nom || !demande || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+    if (!nom || !demande || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return response(400, { error: 'Nom, demande et adresse e-mail valide obligatoires.' }, origin);
     }
     if (!process.env.RESEND_API_KEY) return response(503, { error: "Envoi non configuré." }, origin);
@@ -53,8 +53,8 @@ export default {
           from: 'Nippon Heritage <devis@kervenoa.fr>',
           to: DESTINATAIRES,
           reply_to: email,
-          subject: 'Nouvelle demande Nippon Héritage - ' + nom.replace(/[\\r\\n]/g, ' '),
-          text: lines.join('\\n')
+          subject: 'Nouvelle demande Nippon Héritage - ' + nom.replace(/[\r\n]/g, ' '),
+          text: lines.join('\n')
         }),
         signal: AbortSignal.timeout(10000)
       });
