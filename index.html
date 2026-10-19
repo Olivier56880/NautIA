@@ -346,12 +346,12 @@ document.getElementById("coords").addEventListener("submit", async function(even
 function terminerConversation(envoye = false) {
 
     const resume =
-        "DEMANDE NIPPON HÉRITAGE\\n\\n" +
-        "Objet : " + (donnees.modele || "Non précisé") + "\\n" +
-        "Travaux demandés : " + (donnees.precisions || donnees.demande) + "\\n" +
-        (donnees.details ? "Informations utiles : " + donnees.details + "\\n" : "") +
-        "\\nNom : " + donnees.nom + "\\n" +
-        "E-mail : " + donnees.email + "\\n" +
+        "DEMANDE NIPPON HÉRITAGE\n\n" +
+        "Objet : " + (donnees.modele || "Non précisé") + "\n" +
+        "Travaux demandés : " + (donnees.precisions || donnees.demande) + "\n" +
+        (donnees.details ? "Informations utiles : " + donnees.details + "\n" : "") +
+        "\nNom : " + donnees.nom + "\n" +
+        "E-mail : " + donnees.email + "\n" +
         "Téléphone : " + donnees.telephone;
 
     afficherMessage(
