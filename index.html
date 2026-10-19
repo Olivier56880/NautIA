@@ -205,7 +205,8 @@ const donnees = {
     kilometrage: "",
     immobilisation: "",
     derniereRevision: "",
-    problemes: ""
+    problemes: "",
+    details: ""
 };
 
 
@@ -266,90 +267,44 @@ question(
     "En quoi puis-je vous aider aujourd'hui ?"
 );
 
-formulaire.addEventListener("submit", function(event) {
-    event.preventDefault();
-
-    const texte = reponse.value.trim();
-
-    if (!texte && (etape === 0 || etape === 3)) {
-        question("Merci de renseigner ce champ pour continuer.");
-        return;
-    }
-
-    afficherMessage(texte || "Passer", "client");
-    reponse.value = "";
-
-    if (etape === 0) {
-
-        donnees.demande = texte;
-
-        if (modeleDejaMentionne(texte)) {
-            donnees.modele = nettoyerModele(texte);
-            etape = 2;
-
-            question(
-                "Merci pour ces informations.\n\n" +
-                "Souhaitez-vous apporter des précisions à votre demande ? " +
-                "Vous pouvez aussi écrire « passer »."
-            );
-
-        } else {
-            etape = 1;
-
-            question(
-                "Merci pour votre message.\n\n" +
-                "Si votre demande concerne une moto précise, " +
-                "pouvez-vous m'indiquer sa marque et son modèle ?\n\n" +
-                "Si vous ne le connaissez pas, écrivez « passer »."
-            );
-        }
-
-    } else if (etape === 1) {
-
-        donnees.modele = estVideOuPasse(texte)
-            ? "Non précisé"
-            : nettoyerModele(texte);
-
-        etape = 2;
-
-        question(
-            "Très bien, merci.\n\n" +
-            "Avez-vous des précisions à ajouter concernant votre demande ?\n\n" +
-            "Sinon, écrivez « passer »."
-        );
-
-    } else if (etape === 2) {
-
-        donnees.precisions = estVideOuPasse(texte)
-            ? "Aucune précision supplémentaire"
-            : nettoyerPrestation(texte);
-
-        etape = 3;
-        question("Quel est le kilométrage actuel de la moto ? Vous pouvez répondre « Je ne sais pas ».");
-
-    } else if (etape === 3) {
-        donnees.kilometrage = estVideOuPasse(texte) ? "Non communiqué" : texte;
-        etape = 4;
-        question("Depuis combien de temps la moto est-elle à l'arrêt ? Si elle roule régulièrement, dites « Elle roule ».");
-
-    } else if (etape === 4) {
-        donnees.immobilisation = estVideOuPasse(texte) ? "Non précisé" : texte;
-        etape = 5;
-        question("Quand a été effectuée sa dernière révision ? Vous pouvez répondre « Je ne sais pas ».");
-
-    } else if (etape === 5) {
-        donnees.derniereRevision = estVideOuPasse(texte) ? "Non précisée" : texte;
-        etape = 6;
-        question("Y a-t-il des problèmes particuliers à signaler (démarrage, fuite, freinage...) ? Dites « Aucun » si tout va bien.");
-
-    } else if (etape === 6) {
-        donnees.problemes = estVideOuPasse(texte) ? "Aucun signalé" : texte;
-        formulaire.style.display = "none";
-        document.getElementById("coords").style.display = "block";
-        document.getElementById("coords").scrollIntoView({behavior:"smooth",block:"center"});
-        question("Merci. Complétez le formulaire de coordonnées ci-dessous. Chaque champ dispose de son microphone.");
-
-    }
+const historique = [];
+let questionsPosees = 0;
+let enCours = false;
+formulaire.addEventListener("submit", async function(event) {
+ event.preventDefault();
+ const texte = reponse.value.trim();
+ if (!texte || enCours) return;
+ enCours = true;
+ const envoyer = formulaire.querySelector('button[type="submit"]');
+ envoyer.disabled = true;
+ envoyer.textContent = "Réflexion…";
+ const prochainHistorique = [...historique,{role:"user",content:texte}];
+ try {
+  const result=await fetch("https://nautia.vercel.app/api/chat",{
+   method:"POST", headers:{"Content-Type":"application/json"},
+   body:JSON.stringify({messages:prochainHistorique,questionsAsked:questionsPosees})
+  });
+  const data=await result.json();
+  if(!result.ok||!data.ok)throw new Error(data.error||"Réponse indisponible");
+  afficherMessage(texte,"client");
+  reponse.value="";
+  historique.push({role:"user",content:texte},{role:"assistant",content:data.reply});
+  if(!donnees.demande)donnees.demande=texte;
+  donnees.demande=data.summary?.demande||donnees.demande;
+  donnees.modele=data.summary?.objet||donnees.modele;
+  donnees.precisions=data.summary?.travaux||donnees.precisions;
+  donnees.details=data.summary?.details||donnees.details;
+  question(data.reply);
+  if(data.done){
+   formulaire.style.display="none";
+   document.getElementById("coords").style.display="block";
+   document.getElementById("coords").scrollIntoView({behavior:"smooth",block:"center"});
+  }else questionsPosees++;
+ }catch(error){
+  afficherMessage("Le service de conversation est momentanément indisponible : "+error.message+" Vous pouvez réessayer sans perdre votre message.","bot");
+ }finally{
+  enCours=false;envoyer.disabled=false;envoyer.textContent="Envoyer";
+ }
 });
 
 document.getElementById("coords").addEventListener("submit", async function(event) {
@@ -391,16 +346,12 @@ document.getElementById("coords").addEventListener("submit", async function(even
 function terminerConversation(envoye = false) {
 
     const resume =
-        "DEMANDE NIPPON HÉRITAGE\n\n" +
-        "Demande : " + donnees.demande + "\n\n" +
-        "Moto : " + donnees.modele + "\n\n" +
-        "Travaux demandés : " + donnees.precisions + "\n" +
-        "Kilométrage : " + donnees.kilometrage + "\n" +
-        "Immobilisation : " + donnees.immobilisation + "\n" +
-        "Dernière révision : " + donnees.derniereRevision + "\n" +
-        "Problèmes signalés : " + donnees.problemes + "\n\n" +
-        "Nom : " + donnees.nom + "\n" +
-        "E-mail : " + donnees.email + "\n" +
+        "DEMANDE NIPPON HÉRITAGE\\n\\n" +
+        "Objet : " + (donnees.modele || "Non précisé") + "\\n" +
+        "Travaux demandés : " + (donnees.precisions || donnees.demande) + "\\n" +
+        (donnees.details ? "Informations utiles : " + donnees.details + "\\n" : "") +
+        "\\nNom : " + donnees.nom + "\\n" +
+        "E-mail : " + donnees.email + "\\n" +
         "Téléphone : " + donnees.telephone;
 
     afficherMessage(
