@@ -201,7 +201,11 @@ const donnees = {
     precisions: "",
     email: "",
     telephone: "",
-    nom: ""
+    nom: "",
+    kilometrage: "",
+    immobilisation: "",
+    derniereRevision: "",
+    problemes: ""
 };
 
 
@@ -320,6 +324,26 @@ formulaire.addEventListener("submit", function(event) {
             ? "Aucune précision supplémentaire"
             : nettoyerPrestation(texte);
 
+        etape = 3;
+        question("Quel est le kilométrage actuel de la moto ? Vous pouvez répondre « Je ne sais pas ».");
+
+    } else if (etape === 3) {
+        donnees.kilometrage = estVideOuPasse(texte) ? "Non communiqué" : texte;
+        etape = 4;
+        question("Depuis combien de temps la moto est-elle à l'arrêt ? Si elle roule régulièrement, dites « Elle roule ».");
+
+    } else if (etape === 4) {
+        donnees.immobilisation = estVideOuPasse(texte) ? "Non précisé" : texte;
+        etape = 5;
+        question("Quand a été effectuée sa dernière révision ? Vous pouvez répondre « Je ne sais pas ».");
+
+    } else if (etape === 5) {
+        donnees.derniereRevision = estVideOuPasse(texte) ? "Non précisée" : texte;
+        etape = 6;
+        question("Y a-t-il des problèmes particuliers à signaler (démarrage, fuite, freinage...) ? Dites « Aucun » si tout va bien.");
+
+    } else if (etape === 6) {
+        donnees.problemes = estVideOuPasse(texte) ? "Aucun signalé" : texte;
         formulaire.style.display = "none";
         document.getElementById("coords").style.display = "block";
         document.getElementById("coords").scrollIntoView({behavior:"smooth",block:"center"});
@@ -370,7 +394,11 @@ function terminerConversation(envoye = false) {
         "DEMANDE NIPPON HÉRITAGE\n\n" +
         "Demande : " + donnees.demande + "\n\n" +
         "Moto : " + donnees.modele + "\n\n" +
-        "Travaux demandés : " + donnees.precisions + "\n\n" +
+        "Travaux demandés : " + donnees.precisions + "\n" +
+        "Kilométrage : " + donnees.kilometrage + "\n" +
+        "Immobilisation : " + donnees.immobilisation + "\n" +
+        "Dernière révision : " + donnees.derniereRevision + "\n" +
+        "Problèmes signalés : " + donnees.problemes + "\n\n" +
         "Nom : " + donnees.nom + "\n" +
         "E-mail : " + donnees.email + "\n" +
         "Téléphone : " + donnees.telephone;
