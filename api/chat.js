@@ -36,14 +36,15 @@ Si done=false, reply doit contenir exactement une question pertinente, summary p
    let apiError={};try{apiError=await upstream.json()}catch{}
    const code=String(apiError?.error?.code||"").slice(0,80);
    const type=String(apiError?.error?.type||"").slice(0,80);
-   console.error("OpenAI failure",upstream.status,"code",code,"type",type);
+   const detail=String(apiError?.error?.message||"").slice(0,400).replace(/sk-[A-Za-z0-9_-]+/g,"[masqué]");
+   console.error("OpenAI failure",upstream.status,"code",code,"type",type,"detail",detail);
    let cause="Erreur OpenAI "+upstream.status;
    if(upstream.status===401) cause="Clé OpenAI non autorisée (401)";
    else if(upstream.status===429 && (code==="insufficient_quota" || type==="insufficient_quota")) cause="Crédit ou plafond de dépenses OpenAI atteint (429)";
    else if(upstream.status===429) cause="Limite temporaire de requêtes OpenAI (429)";
    else if(upstream.status===400) cause="Paramètres de conversation incompatibles avec OpenAI (400)";
    else if(upstream.status===403) cause="Accès refusé par OpenAI (403)";
-   return reply(502,{error:cause+" ; code : "+(code||type||"non précisé")},origin)
+   return reply(502,{error:cause+" ; détail : "+(detail||code||type||"non précisé")},origin)
   }
   let raw;try{raw=await upstream.json()}catch{return reply(502,{error:"Réponse OpenAI illisible"},origin)}
   const output=(raw.output||[]).flatMap(x=>x.content||[]).filter(x=>x.type==="output_text").map(x=>x.text).join("");
