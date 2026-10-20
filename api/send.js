@@ -64,7 +64,7 @@ export default {
         method: 'POST',
         headers: { Authorization: 'Bearer ' + process.env.RESEND_API_KEY, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          from: 'Nippon Heritage <devis@kervenoa.fr>',
+          from: 'KERVENOA <devis@kervenoa.fr>',
           to: isArmel ? ARMel_TEST_RECIPIENT : DESTINATAIRES,
           reply_to: email,
           subject: (isArmel ? '[TEST KERVENOA] Demande Armel Nautic - ' : 'Nouvelle demande Nippon Héritage - ') + nom.replace(/[\r\n]/g, ' '),
