@@ -79,7 +79,7 @@ export default {
     if (!process.env.RESEND_API_KEY) return response(503, { error: "Envoi non configuré." }, origin);
     const normaliserMarque = (valeur) => isArmel ? valeur.replace(/\b(?:jeannot|janot|jeano|jeannau|jeaneau)\b/gi, 'Jeanneau') : valeur;
     const lines = [
-      'TEST KERVENOA - DEMANDE ' + companyName.toUpperCase() + ' - ENVOI UNIQUEMENT À KERVENOA', '',
+      'DEMANDE DE DEVIS - ' + companyName.toUpperCase(), '',
       'Nom : ' + nom, 'Adresse e-mail : ' + email,
       'Téléphone : ' + (telephone || 'Non communiqué'), '',
       'Objet : ' + normaliserMarque(modele || 'Non précisé'), 'Travaux demandés : ' + normaliserMarque(precisions || demande),
