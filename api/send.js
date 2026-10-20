@@ -3,8 +3,7 @@ const ALLOWED_ORIGINS = new Set([
   'https://nautia.vercel.app',
   'https://nautia-olivierpoulain1971-3208.vercel.app'
 ]);
-const DESTINATAIRES = ['frostyhem@gmail.com', 'kervenoa@proton.me'];
-const ARMel_TEST_RECIPIENT = ['kervenoa@proton.me'];
+const TEST_RECIPIENT = ['kervenoa@proton.me'];
 const response = (status, body, origin) => new Response(JSON.stringify(body), {
   status,
   headers: {
@@ -31,9 +30,19 @@ export default {
     let body;
     try { body = await request.json(); } catch { return response(400, { error: 'Données incorrectes' }, origin); }
     if (body.website) return response(200, { ok: true }, origin);
-    const client = body.client === 'armel-nautic' ? 'armel-nautic' : (body.client === 'nippon-heritage' || body.client == null ? 'nippon-heritage' : null);
-    if (!client) return response(400, {error:'Client inconnu'},origin);
-    const isArmel = client === 'armel-nautic'; // champ piège antibot
+    const client = typeof body.client === 'string' ? body.client : '';
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(client) || client.length > 80)
+      return response(400, { error: 'Client ID manquant ou invalide' }, origin);
+    let company;
+    try {
+      const config = await fetch('https://obvzuccjxgjlaieghmxm.supabase.co/functions/v1/kervenoa-chat-config?client=' + encodeURIComponent(client), { signal: AbortSignal.timeout(7000) });
+      if (!config.ok) return response(config.status === 404 ? 404 : 502, { error: 'Entreprise indisponible' }, origin);
+      company = await config.json();
+      if (company.slug !== client || typeof company.companyName !== 'string' || !company.companyName.trim())
+        return response(502, { error: 'Identification entreprise incorrecte' }, origin);
+    } catch { return response(502, { error: 'Impossible de vérifier l’entreprise' }, origin); }
+    const companyName = company.companyName.trim().replace(/[\\r\\n]/g, ' ').slice(0, 100);
+    const isArmel = client === 'armel-nautic';
     const clean = (value, max) => typeof value === 'string' ? value.trim().slice(0, max) : '';
     const nom = clean(body.nom, 150), email = clean(body.email, 254),
       telephone = clean(body.telephone, 80), demande = clean(body.demande, 3000),
@@ -48,7 +57,7 @@ export default {
     if (!process.env.RESEND_API_KEY) return response(503, { error: "Envoi non configuré." }, origin);
     const normaliserMarque = (valeur) => isArmel ? valeur.replace(/\b(?:jeannot|janot|jeano|jeannau|jeaneau)\b/gi, 'Jeanneau') : valeur;
     const lines = [
-      (isArmel ? 'TEST KERVENOA - DEMANDE ARMEL NAUTIC - NE PAS TRANSMETTRE AU CHANTIER' : 'DEMANDE NIPPON HÉRITAGE'), '',
+      'TEST KERVENOA - DEMANDE ' + companyName.toUpperCase() + ' - ENVOI UNIQUEMENT À KERVENOA', '',
       'Nom : ' + nom, 'Adresse e-mail : ' + email,
       'Téléphone : ' + (telephone || 'Non communiqué'), '',
       'Objet : ' + normaliserMarque(modele || 'Non précisé'), 'Travaux demandés : ' + normaliserMarque(precisions || demande),
@@ -65,9 +74,9 @@ export default {
         headers: { Authorization: 'Bearer ' + process.env.RESEND_API_KEY, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           from: 'KERVENOA <devis@kervenoa.fr>',
-          to: isArmel ? ARMel_TEST_RECIPIENT : DESTINATAIRES,
+          to: TEST_RECIPIENT,
           reply_to: email,
-          subject: (isArmel ? '[TEST KERVENOA] Demande Armel Nautic - ' : 'Nouvelle demande Nippon Héritage - ') + nom.replace(/[\r\n]/g, ' '),
+          subject: 'Demande ' + companyName + ' - ' + nom.replace(/[\r\n]/g, ' '),
           text: lines.join('\n')
         }),
         signal: AbortSignal.timeout(10000)
