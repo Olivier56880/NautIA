@@ -3,7 +3,29 @@ const ALLOWED_ORIGINS = new Set([
   'https://nautia.vercel.app',
   'https://nautia-olivierpoulain1971-3208.vercel.app'
 ]);
-const TEST_RECIPIENT = ['kervenoa@proton.me'];
+const KERVENOA_EMAIL = 'kervenoa@proton.me';
+// Env variable SUPABASE_SERVICE_ROLE_KEY is server-only, NEVER sent to browsers.
+// A professional recipient is used only after explicit confirmation in Supabase.
+async function recipientsForClient(client) {
+  const recipients = [KERVENOA_EMAIL];
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!key) return recipients; // Safe test mode.
+  const url = 'https://obvzuccjxgjlaieghmxm.supabase.co/rest/v1/kervenoa_chat_clients'
+    + '?select=recipient_email,recipient_email_confirmed,is_active&slug=eq.'
+    + encodeURIComponent(client) + '&limit=1';
+  const r = await fetch(url, {
+    headers: { apikey: key, Authorization: 'Bearer ' + key },
+    signal: AbortSignal.timeout(7000)
+  });
+  if (!r.ok) throw new Error('Recipient lookup failed');
+  const rows = await r.json();
+  const data = rows[0];
+  if (!data?.is_active) throw new Error('Client not active');
+  const email = String(data.recipient_email || '').trim().toLowerCase();
+  if (data.recipient_email_confirmed && /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)
+    && email !== KERVENOA_EMAIL) recipients.push(email);
+  return recipients;
+}
 const response = (status, body, origin) => new Response(JSON.stringify(body), {
   status,
   headers: {
@@ -69,12 +91,13 @@ export default {
     ];
     let result;
     try {
+      const recipients = await recipientsForClient(client);
       result = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { Authorization: 'Bearer ' + process.env.RESEND_API_KEY, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           from: 'KERVENOA <devis@kervenoa.fr>',
-          to: TEST_RECIPIENT,
+          to: recipients,
           reply_to: email,
           subject: 'Demande ' + companyName + ' - ' + nom.replace(/[\r\n]/g, ' '),
           text: lines.join('\n')
