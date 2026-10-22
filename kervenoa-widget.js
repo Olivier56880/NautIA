@@ -16,7 +16,7 @@
     root.innerHTML = `<style>
       :host{color-scheme:light;font:14px/1.45 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
       *{box-sizing:border-box}a,button{-webkit-tap-highlight-color:transparent}
-      .wrap{display:flex;align-items:center;gap:12px}
+      .wrap{font:14px/1.45 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;display:flex;align-items:center;gap:12px}
       .hint{position:relative;max-width:245px;padding:13px 36px 13px 17px;background:#fff;color:#172c46;border:1px solid #e4e7ec;border-radius:18px 18px 4px 18px;box-shadow:0 6px 25px #172c4620}
       .hint>a{color:inherit;text-decoration:none;display:block}.hint strong{font-size:14px;font-weight:750;display:block}.hint span{display:block;font-size:12px;color:#5e6b7a;margin-top:2px}
       .dismiss{position:absolute;right:6px;top:5px;border:0;background:transparent;color:#677284;border-radius:50%;cursor:pointer;width:28px;height:28px;font:20px system-ui}
