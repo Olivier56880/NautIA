@@ -1,0 +1,34 @@
+INSTALLATION DU BOUTON KERVENOA — NIPPON HÉRITAGE
+
+Copier cette ligne une seule fois dans le modèle général du site, juste avant </body> :
+
+<script defer src="https://olivier56880.github.io/NautIA/kervenoa-widget.js" data-client="nippon-heritage" data-company="Nippon Héritage"></script>
+
+Le robot s’affiche en bas à droite sur ordinateur et téléphone. Son message est :
+« Une question ? Besoin d’un devis ? »
+Le clic ouvre le chatbot Nippon Héritage dans un nouvel onglet. La croix masque uniquement le message d’accueil, le robot reste disponible.
+
+NEXT.JS (si le site n’accepte pas directement une balise script)
+Ajouter cet import au modèle général app/layout.tsx :
+import Script from 'next/script';
+Puis placer ce composant dans le body, après {children} :
+<Script src="https://olivier56880.github.io/NautIA/kervenoa-widget.js" strategy="afterInteractive" data-client="nippon-heritage" data-company="Nippon Héritage" />
+Publier le site avec la procédure habituelle. Aucun mot de passe ou secret à partager.
+
+ESSAI VISUEL
+https://olivier56880.github.io/NautIA/widget-demo.html
+
+CONTRÔLES CE SOIR
+1. Ouvrir une page du site sur ordinateur puis sur téléphone.
+2. Vérifier que le robot ne masque pas le bandeau cookies ou un autre bouton ; ajuster au besoin son emplacement avant validation.
+3. Cliquer : vérifier le titre Nippon Héritage dans l’assistant.
+4. Faire une demande fictive et vérifier la réception aux adresses de test prévues.
+
+Si le site utilise une politique CSP stricte, autoriser l’origine https://olivier56880.github.io pour le script et prévoir une autorisation adaptée pour les styles du composant. Le lien de secours vers le chatbot reste :
+https://olivier56880.github.io/NautIA/?client=nippon-heritage
+
+Le bouton n’ajoute ni cookie, ni suivi, ni stockage local. Il n’envoie pas de données de la page au chatbot. Le chatbot applique son propre traitement lors de son ouverture.
+Le JavaScript du bouton est public par nature. Il ne contient aucun tarif, aucune clé d’API ni accès à la base. Les traitements confidentiels doivent rester côté serveur.
+
+Pour désinstaller : retirer la ligne ou le composant Script, puis republier.
+Pour les autres clients : utiliser leur identifiant réel configuré ; ne pas réutiliser celui de Nippon Héritage.
