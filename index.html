@@ -121,7 +121,7 @@ button:hover {
             placeholder="Décrivez votre demande en détail, sur plusieurs lignes..."
             aria-label="Votre message"
         ></textarea>
-        <button type="button" id="microphone" aria-label="Activer la dictée vocale" title="Dicter un message" hidden>🎤</button>
+        <button type="button" id="microphone" aria-pressed="false" aria-label="Activer la dictée vocale" title="Dicter un message" hidden>🎤</button>
         <button type="submit">Envoyer</button>
     </form>
 
@@ -175,6 +175,7 @@ if (SpeechRecognitionClass) {
     let voiceBase = "";
     let lastTranscript = "";
     recognition.onstart = () => {
+        if (!voiceEnabled) { recognition.abort(); return; }
         listening = true;
         voiceBase = voiceTarget.value.trim();
         lastTranscript = "";
@@ -276,6 +277,7 @@ function afficherMessage(texte, type) {
 }
 
 function question(texte) {
+    arreterDictee();
     afficherMessage(texte, "bot");
     reponse.focus();
 }
@@ -301,7 +303,7 @@ reponse.disabled = true;
 configPromise.then(() => {
  clientReady=true;
  reponse.disabled=false;
- question("Bonjour et bienvenue chez "+companyName+" !\\n\\nEn quoi puis-je vous aider aujourd'hui ?");
+ question("Bonjour et bienvenue chez "+companyName+" !\n\nEn quoi puis-je vous aider aujourd'hui ?");
 }).catch(() => {
  question("Ce lien client n'est pas disponible pour le moment. Veuillez vérifier l'adresse.");
  formulaire.style.display="none";
