@@ -156,6 +156,15 @@ const voiceStatus = document.getElementById("voice-status");
 const SpeechRecognitionClass = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognition = null;
 let listening = false;
+let voiceEnabled = false;
+function arreterDictee() {
+    voiceEnabled = false;
+    if (recognition) recognition.abort();
+    listening = false;
+    microphone.setAttribute("aria-pressed", "false");
+    microphone.textContent = "🎤";
+    voiceStatus.textContent = "Saisie écrite. Cliquez sur le micro pour dicter.";
+}
 let voiceTarget = reponse;
 if (SpeechRecognitionClass) {
     microphone.hidden = false;
@@ -174,6 +183,7 @@ if (SpeechRecognitionClass) {
         voiceStatus.textContent = "Dictée en cours… Parlez librement, puis appuyez sur ⏹ pour terminer.";
     };
     recognition.onresult = (event) => {
+        if (!voiceEnabled) return;
         const transcription = Array.from(event.results).map(result => result[0].transcript).join(" ").trim();
         lastTranscript = transcription;
         let value = transcription;
@@ -191,6 +201,7 @@ if (SpeechRecognitionClass) {
         voiceStatus.textContent = messages[event.error] || "Reconnaissance vocale indisponible. Réessayez.";
     };
     recognition.onend = () => {
+        voiceEnabled = false;
         listening = false;
         microphone.setAttribute("aria-pressed", "false");
         microphone.textContent = "🎤";
@@ -198,20 +209,24 @@ if (SpeechRecognitionClass) {
     document.querySelectorAll(".mic-field").forEach(button => {
         button.hidden = false;
         button.addEventListener("click", () => {
+            if (listening) { arreterDictee(); return; }
             voiceTarget = document.getElementById(button.dataset.id);
-            if (listening) recognition.stop();
-            else try { recognition.start(); } catch(e) { voiceStatus.textContent = "Microphone indisponible."; }
+            voiceEnabled = true;
+            try { recognition.start(); } catch(e) { voiceStatus.textContent = "Microphone indisponible."; }
         });
     });
     microphone.addEventListener("click", () => {
+        if (listening) { arreterDictee(); return; }
         voiceTarget = reponse;
-        if (listening) { recognition.stop(); return; }
+        voiceEnabled = true;
         try { recognition.start(); }
         catch (error) { voiceStatus.textContent = "Impossible de démarrer la dictée pour le moment."; }
     });
 } else {
     voiceStatus.textContent = "Dictée vocale non disponible sur ce navigateur.";
 }
+
+voiceStatus.textContent = SpeechRecognitionClass ? "Saisie écrite. Cliquez sur le micro pour dicter." : voiceStatus.textContent;
 
 let etape = 0;
 
@@ -297,6 +312,7 @@ let questionsPosees = 0;
 let enCours = false;
 formulaire.addEventListener("submit", async function(event) {
  event.preventDefault();
+ arreterDictee();
  const texte = reponse.value.trim();
  if (!texte || enCours || !clientReady) return;
  enCours = true;
@@ -335,6 +351,7 @@ formulaire.addEventListener("submit", async function(event) {
 
 document.getElementById("coords").addEventListener("submit", async function(event) {
     event.preventDefault();
+    arreterDictee();
     const nom = document.getElementById("client-nom").value.trim();
     const email = document.getElementById("client-email").value.trim();
     const tel = document.getElementById("client-tel").value.trim();
@@ -388,7 +405,7 @@ function terminerConversation(envoye = false) {
         "bot"
     );
 
-    if (recognition && listening) recognition.stop();
+    arreterDictee();
     formulaire.style.display = "none";
 
     const bouton = document.createElement("button");
