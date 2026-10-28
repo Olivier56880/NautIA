@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
 import {PDFDocument} from 'pdf-lib';
 import handler from './api/send-quote.js';
 const id='b984ed92-85ea-45b7-9f5d-29ea317613f5';
@@ -24,8 +25,8 @@ globalThis.fetch=async(url,options)=>{
 };
 const run=async()=>{const r=await handler.fetch(new Request('https://test/api/send-quote',{method:'POST',headers:{'x-kervenoa-quote-key':'test-only','Content-Type':'application/json'},body:JSON.stringify({client_id:id,quote_number:'NH-TEST',pdf_base64:input,demonstration:true})}));return [r.status,await r.json()];};
 for(mode of ['missing','wrong','corrupt']){const [code,b]=await run();assert.ok(code>=400);assert.equal(b.status,'blocked');assert.equal(b.sent,false);assert.equal(calls,0);}
-mode='ok';let [code,b]=await run();assert.equal(code,200);assert.equal(b.logo_applied,true);assert.notEqual(attachment,input);
+mode='ok';let [code,b]=await run();assert.equal(code,200);assert.equal(b.logo_applied,false);assert.equal(b.pdf_preserved,true);assert.equal(attachment,input);assert.equal(b.pdf_sha256,createHash('sha256').update(Buffer.from(input,'base64')).digest('hex'));
 const output=await PDFDocument.load(Buffer.from(attachment,'base64'));assert.equal(output.getPageCount(),1);assert.ok(output.getPage(0).node.Resources().lookupMaybe);
 await run();assert.equal(calls,2);
 mode='timeout';[code,b]=await run();assert.equal(b.status,'uncertain');assert.equal(b.sent,null);
-console.log('PASS: missing/cross-client/corrupt logos blocked; branded PDF and recipients verified; deterministic retry; uncertain status explicit. No real email sent.');
+console.log('PASS: missing/cross-client/corrupt logos blocked; unchanged PDF bytes and recipients verified; deterministic retry; uncertain status explicit. No real email sent.');
