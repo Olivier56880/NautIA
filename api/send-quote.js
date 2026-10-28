@@ -72,7 +72,7 @@ export default {async fetch(request){
   sendAttempted=true;
   const r=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:'Bearer '+process.env.RESEND_API_KEY,'Content-Type':'application/json','Idempotency-Key':'quote-'+client_id+'-'+hash},body:JSON.stringify(payload),signal:AbortSignal.timeout(25000)});
   const result=await r.json();
-  if(!r.ok||typeof result.id!=='string'){console.error('Quote send failed',r.status,result.name||'unknown');return json({error:'Resend refused the quote',provider_status:r.status},502);}
+  if(!r.ok||typeof result.id!=='string'){console.error('Quote send failed',r.status,result.name||'unknown');return json({status:(!r.ok&&r.status<500)?'blocked':'uncertain',quote_number,error:(!r.ok&&r.status<500)?'Resend refused the quote; quote not sent':'Provider status uncertain; retry the same PDF and reference',provider_status:r.status},502);}
   console.info('Quote accepted',quote_number,result.id);
   return json({ok:true,status:'accepted',email_id:result.id,client_id,quote_number,to:payload.to,cc:payload.cc||[],pdf_sha256:createHash('sha256').update(branded).digest('hex'),logo_applied:true});
  }catch(e){console.error('Quote send unavailable',e.name);return json(sendAttempted?{status:'uncertain',quote_number,error:'Send status uncertain; retry the same PDF and reference to avoid duplicates'}:{status:'blocked',quote_number,error:'Preparation unavailable; quote not sent'},502);}
