@@ -39,42 +39,30 @@ export default {async fetch(request){
   const logoReader=lr.body.getReader();let logoSize=0,logoChunks=[];
   while(true){const {done,value}=await logoReader.read();if(done)break;logoSize+=value.length;if(logoSize>5*1024*1024){await logoReader.cancel();return json({error:'Client logo too large'},409);}logoChunks.push(value);}
   const logoBytes=Buffer.concat(logoChunks);
-  let branded;
+  // Validate only. The generator owns branding and page layout.
+  // Attach the original bytes so the reviewed and emailed PDFs are identical.
   try{
    const source=await PDFDocument.load(bytes,{updateMetadata:false});
    if(source.getPageCount()<1||source.getPageCount()>50)throw new Error('Invalid page count');
-   // Reject signed documents rather than invalidate a signature.
-   if(source.getForm().getFields().some(f=>f.constructor.name==='PDFSignature'))throw new Error('Signed PDF');
-   const out=await PDFDocument.create({updateMetadata:false});
    const png=logoBytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]));
    const jpg=logoBytes[0]===255&&logoBytes[1]===216&&logoBytes[2]===255;
    if(!png&&!jpg)throw new Error('PNG or JPEG logo required');
-   const logo=png?await out.embedPng(logoBytes):await out.embedJpg(logoBytes);
-   const pages=await out.embedPages(source.getPages());
-   for(let i=0;i<pages.length;i++){
-    const original=pages[i];const w=original.width,h=original.height;
+   for(const page of source.getPages()){
+    const {width:w,height:h}=page.getSize();
     if(w<200||h<200||w>2000||h>2000)throw new Error('Unsupported page dimensions');
-    const page=out.addPage([w,h]);const header=90;
-    const scale=Math.min(1,(h-header)/h);
-    page.drawPage(original,{x:(w-w*scale)/2,y:0,width:w*scale,height:h*scale});
-    const logoScale=Math.min((w-72)/logo.width,64/logo.height,180/logo.width);
-    page.drawImage(logo,{x:36,y:h-12-logo.height*logoScale,width:logo.width*logoScale,height:logo.height*logoScale});
    }
-   branded=Buffer.from(await out.save());
-   if(branded.length>MAX)return json({error:'Branded PDF exceeds 2 Mo; quote not sent'},413);
-  }catch{return json({error:'Unable to create PDF with client logo; quote not sent'},422);}
+  }catch{return json({error:'Invalid PDF or client logo; quote not sent'},422);}
   const company=String(client.company_name||'').replace(/[\r\n]/g,' ').slice(0,100);
   const test=body.demonstration===true;
   const subject=(test?'[TEST] ':'')+'Devis '+quote_number+' - '+company;
   const text='Bonjour,\n\nVeuillez trouver en pièce jointe le devis '+quote_number+' pour '+company+'.\n'+(test?'\nIl s’agit d’un test de démonstration non contractuel.\n':'')+'\nCordialement,\nKervenoa';
-  const payload={from:'KERVENOA <devis@kervenoa.fr>',to:[client.to],...(client.to!==client.cc?{cc:[client.cc]}:{}),subject,text,attachments:[{filename:'Devis_'+quote_number+'.pdf',content:branded.toString('base64')}]};
+  const payload={from:'KERVENOA <devis@kervenoa.fr>',to:[client.to],...(client.to!==client.cc?{cc:[client.cc]}:{}),subject,text,attachments:[{filename:'Devis_'+quote_number+'.pdf',content:pdf_base64}]};
   const hash=createHash('sha256').update(JSON.stringify(payload)).digest('hex');
   sendAttempted=true;
   const r=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:'Bearer '+process.env.RESEND_API_KEY,'Content-Type':'application/json','Idempotency-Key':'quote-'+client_id+'-'+hash},body:JSON.stringify(payload),signal:AbortSignal.timeout(25000)});
   const result=await r.json();
   if(!r.ok||typeof result.id!=='string'){console.error('Quote send failed',r.status,result.name||'unknown');return json({status:(!r.ok&&r.status<500)?'blocked':'uncertain',quote_number,error:(!r.ok&&r.status<500)?'Resend refused the quote; quote not sent':'Provider status uncertain; retry the same PDF and reference',provider_status:r.status},502);}
   console.info('Quote accepted',quote_number,result.id);
-  return json({ok:true,status:'accepted',email_id:result.id,client_id,quote_number,to:payload.to,cc:payload.cc||[],pdf_sha256:createHash('sha256').update(branded).digest('hex'),logo_applied:true});
+  return json({ok:true,status:'accepted',email_id:result.id,client_id,quote_number,to:payload.to,cc:payload.cc||[],pdf_sha256:createHash('sha256').update(bytes).digest('hex'),pdf_preserved:true,logo_applied:false});
  }catch(e){console.error('Quote send unavailable',e.name);return json(sendAttempted?{status:'uncertain',quote_number,error:'Send status uncertain; retry the same PDF and reference to avoid duplicates'}:{status:'blocked',quote_number,error:'Preparation unavailable; quote not sent'},502);}
 }};
-
