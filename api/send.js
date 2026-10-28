@@ -63,7 +63,7 @@ export default {
       if (company.slug !== client || typeof company.companyName !== 'string' || !company.companyName.trim())
         return response(502, { error: 'Identification entreprise incorrecte' }, origin);
     } catch { return response(502, { error: 'Impossible de vérifier l’entreprise' }, origin); }
-    const companyName = company.companyName.trim().replace(/[\\r\\n]/g, ' ').slice(0, 100);
+    const companyName = company.companyName.trim().replace(/[\r\n]/g, ' ').slice(0, 100);
     const isArmel = client === 'armel-nautic';
     const clean = (value, max) => typeof value === 'string' ? value.trim().slice(0, max) : '';
     const nom = clean(body.nom, 150), email = clean(body.email, 254),
