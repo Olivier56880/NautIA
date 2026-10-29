@@ -4,26 +4,24 @@ const ALLOWED_ORIGINS = new Set([
   'https://nautia-olivierpoulain1971-3208.vercel.app'
 ]);
 const KERVENOA_EMAIL = 'kervenoa@proton.me';
-// Env variable SUPABASE_SERVICE_ROLE_KEY is server-only, NEVER sent to browsers.
+// Resolve recipients through the existing authenticated private context service.
 // A professional recipient is used only after explicit confirmation in Supabase.
 async function recipientsForClient(client) {
   const recipients = [KERVENOA_EMAIL];
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!key) return recipients; // Safe test mode.
-  const url = 'https://obvzuccjxgjlaieghmxm.supabase.co/rest/v1/kervenoa_chat_clients'
-    + '?select=recipient_email,recipient_email_confirmed,is_active&slug=eq.'
-    + encodeURIComponent(client) + '&limit=1';
-  const r = await fetch(url, {
-    headers: { apikey: key, Authorization: 'Bearer ' + key },
-    signal: AbortSignal.timeout(7000)
+  const key = process.env.KERVENOA_QUOTE_API_TOKEN;
+  if (!key) throw new Error('Recipient lookup not configured');
+  const r = await fetch('https://obvzuccjxgjlaieghmxm.supabase.co/functions/v1/kervenoa-quote-context', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-kervenoa-quote-key': key },
+    body: JSON.stringify({ client_slug: client, mode: 'recipients' }),
+    redirect: 'error', signal: AbortSignal.timeout(7000)
   });
   if (!r.ok) throw new Error('Recipient lookup failed');
-  const rows = await r.json();
-  const data = rows[0];
-  if (!data?.is_active) throw new Error('Client not active');
-  const email = String(data.recipient_email || '').trim().toLowerCase();
-  if (data.recipient_email_confirmed && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-    && email !== KERVENOA_EMAIL) recipients.push(email);
+  const data = await r.json();
+  const email = String(data.to || '').trim().toLowerCase();
+  if (data.client_slug !== client || data.cc !== KERVENOA_EMAIL || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    throw new Error('Invalid recipient configuration');
+  if (email !== KERVENOA_EMAIL) recipients.push(email);
   return recipients;
 }
 const response = (status, body, origin) => new Response(JSON.stringify(body), {
@@ -90,8 +88,10 @@ export default {
       ...(problemes ? ['Problèmes signalés : ' + problemes] : [])
     ];
     let result;
+    let recipientCount = 0;
     try {
       const recipients = await recipientsForClient(client);
+      recipientCount = recipients.length;
       result = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { Authorization: 'Bearer ' + process.env.RESEND_API_KEY, 'Content-Type': 'application/json' },
@@ -111,6 +111,10 @@ export default {
       console.error('Resend error status:', result.status);
       return response(502, { error: "Resend a refusé l'envoi. Vérifiez les journaux Vercel." }, origin);
     }
+    let accepted;
+    try { accepted = await result.json(); } catch { return response(502, { error: "Réponse du service d’envoi illisible." }, origin); }
+    if (typeof accepted.id !== 'string') return response(502, { error: "Envoi non confirmé par le service." }, origin);
+    console.info('Chatbot email accepted', JSON.stringify({client, recipient_count: recipientCount, email_id: accepted.id}));
     return response(200, { ok: true }, origin);
   }
 };
