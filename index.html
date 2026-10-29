@@ -157,77 +157,107 @@ const SpeechRecognitionClass = window.SpeechRecognition || window.webkitSpeechRe
 let recognition = null;
 let listening = false;
 let voiceEnabled = false;
+let voiceTarget = reponse;
+let voiceSession = 0;
+const voiceButtons = [microphone, ...document.querySelectorAll(".mic-field")];
+function afficherEtatMicro(activeButton = null) {
+    voiceButtons.forEach(button => {
+        const active = button === activeButton;
+        button.textContent = active ? "Arrêter" : "🎤";
+        button.setAttribute("aria-pressed", String(active));
+        button.setAttribute("aria-label", active ? "Arrêter la dictée" : "Activer la dictée vocale");
+        button.title = active ? "Arrêter la dictée" : "Dicter un message";
+    });
+}
 function arreterDictee() {
+    voiceSession++;
+    const previous = recognition;
+    recognition = null;
     voiceEnabled = false;
-    if (recognition) recognition.abort();
     listening = false;
-    microphone.setAttribute("aria-pressed", "false");
-    microphone.textContent = "🎤";
+    afficherEtatMicro();
+    if (previous) { try { previous.abort(); } catch {} }
     voiceStatus.textContent = "Saisie écrite. Cliquez sur le micro pour dicter.";
 }
-let voiceTarget = reponse;
-if (SpeechRecognitionClass) {
-    microphone.hidden = false;
-    recognition = new SpeechRecognitionClass();
-    recognition.lang = "fr-FR";
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    let voiceBase = "";
-    let lastTranscript = "";
-    recognition.onstart = () => {
-        if (!voiceEnabled) { recognition.abort(); return; }
+function demarrerDictee(target, button) {
+    if (voiceEnabled) { arreterDictee(); return; }
+    // Capture once per click, never rebase on a later speech event.
+    const base = target.value.trim();
+    const session = ++voiceSession;
+    voiceTarget = target;
+    const current = new SpeechRecognitionClass();
+    recognition = current;
+    voiceEnabled = true;
+    listening = false;
+    current.lang = "fr-FR";
+    // One utterance, final results only: mobile interim hypotheses must not
+    // accumulate in the input. Another click starts an independent utterance.
+    current.continuous = false;
+    current.interimResults = false;
+    const isCurrent = () => voiceEnabled && voiceSession === session && recognition === current;
+    const activeStatus = "Micro actif. Parlez, puis faites une pause, ou appuyez sur Arrêter.";
+    afficherEtatMicro(button);
+    voiceStatus.textContent = "Démarrage du microphone… Appuyez sur Arrêter pour annuler.";
+    current.onstart = () => {
+        if (!isCurrent()) return;
         listening = true;
-        voiceBase = voiceTarget.value.trim();
-        lastTranscript = "";
-        microphone.setAttribute("aria-pressed", "true");
-        microphone.textContent = "⏹";
-        voiceStatus.textContent = "Dictée en cours… Parlez librement, puis appuyez sur ⏹ pour terminer.";
+        afficherEtatMicro(button);
+        voiceStatus.textContent = activeStatus;
     };
-    recognition.onresult = (event) => {
-        if (!voiceEnabled) return;
-        const transcription = Array.from(event.results).map(result => result[0].transcript).join(" ").trim();
-        lastTranscript = transcription;
-        let value = transcription;
-        if (voiceTarget.id === "reponse") value = value.replace(/\b(?:jeannot|janot|jeano|jeannau|jeaneau)\b/gi, "Jeanneau");
-        if (voiceTarget.id === "client-email") value = value.toLowerCase().replace(/\\s*(?:arobase|arrobase)\\s*/gi,"@").replace(/\\s+point\\s+/gi,".").replace(/\\s+/g,"");
-        voiceTarget.value = [voiceBase, value].filter(Boolean).join(voiceTarget.id === "client-email" ? "" : " ");
-        voiceStatus.textContent = "Dictée en cours… Appuyez sur ⏹ lorsque vous avez terminé.";
+    current.onresult = (event) => {
+        if (!isCurrent()) return;
+        // A non-continuous session represents one phrase. Replace its current
+        // hypothesis rather than concatenate cumulative mobile transcripts.
+        let value = "";
+        for (let i = event.results.length - 1; i >= 0; i--) {
+            if (event.results[i].isFinal) { value = event.results[i][0].transcript.trim(); break; }
+        }
+        if (!value) return;
+        if (target.id === "reponse") value = value.replace(/\b(?:jeannot|janot|jeano|jeannau|jeaneau)\b/gi, "Jeanneau");
+        if (target.id === "client-email") value = value.toLowerCase().replace(/\s*(?:arobase|arrobase)\s*/gi,"@").replace(/\s+point\s+/gi,".").replace(/\s+/g,"");
+        const combined = [base, value].filter(Boolean).join(target.id === "client-email" ? "" : " ");
+        target.value = target.maxLength > 0 ? combined.slice(0, target.maxLength) : combined;
+        target.dispatchEvent(new Event("input", { bubbles: true }));
+        // End the session after accepting its final phrase; ignore late events.
+        arreterDictee();
+        voiceStatus.textContent = "Dictée ajoutée. Vous pouvez corriger le texte ou recliquer sur le micro pour continuer.";
     };
-    recognition.onerror = (event) => {
-        const messages = {
+    current.onerror = (event) => {
+        if (!isCurrent()) return;
+        const errors = {
             "not-allowed": "Autorisez le microphone dans les paramètres du navigateur.",
+            "service-not-allowed": "Le service de dictée est refusé par le navigateur.",
             "audio-capture": "Aucun microphone accessible. Vérifiez votre casque ou microphone.",
-            "no-speech": "Aucune parole détectée. Cliquez sur le microphone pour réessayer."
+            "no-speech": "Aucune parole détectée. Cliquez sur le microphone pour réessayer.",
+            "network": "Le service de dictée ne répond pas. Vérifiez la connexion puis réessayez.",
+            "language-not-supported": "La dictée en français n’est pas disponible dans ce navigateur."
         };
-        voiceStatus.textContent = messages[event.error] || "Reconnaissance vocale indisponible. Réessayez.";
+        arreterDictee();
+        voiceStatus.textContent = errors[event.error] || "Dictée interrompue (" + event.error + "). Vous pouvez réessayer.";
     };
-    recognition.onend = () => {
-        voiceEnabled = false;
-        listening = false;
-        microphone.setAttribute("aria-pressed", "false");
-        microphone.textContent = "🎤";
+    current.onend = () => {
+        if (!isCurrent()) return;
+        arreterDictee();
+        voiceStatus.textContent = "Dictée terminée. Cliquez sur le micro pour recommencer.";
     };
+    try { current.start(); }
+    catch {
+        if (isCurrent()) {
+            arreterDictee();
+            voiceStatus.textContent = "Impossible de démarrer la dictée. Vous pouvez réessayer.";
+        }
+    }
+}
+if (SpeechRecognitionClass) {
+    voiceButtons.forEach(button => { button.hidden = false; });
+    microphone.addEventListener("click", () => demarrerDictee(reponse, microphone));
     document.querySelectorAll(".mic-field").forEach(button => {
-        button.hidden = false;
-        button.addEventListener("click", () => {
-            if (listening) { arreterDictee(); return; }
-            voiceTarget = document.getElementById(button.dataset.id);
-            voiceEnabled = true;
-            try { recognition.start(); } catch(e) { voiceStatus.textContent = "Microphone indisponible."; }
-        });
+        button.addEventListener("click", () => demarrerDictee(document.getElementById(button.dataset.id), button));
     });
-    microphone.addEventListener("click", () => {
-        if (listening) { arreterDictee(); return; }
-        voiceTarget = reponse;
-        voiceEnabled = true;
-        try { recognition.start(); }
-        catch (error) { voiceStatus.textContent = "Impossible de démarrer la dictée pour le moment."; }
-    });
+    voiceStatus.textContent = "Saisie écrite. Cliquez sur le micro pour dicter.";
 } else {
     voiceStatus.textContent = "Dictée vocale non disponible sur ce navigateur.";
 }
-
-voiceStatus.textContent = SpeechRecognitionClass ? "Saisie écrite. Cliquez sur le micro pour dicter." : voiceStatus.textContent;
 
 let etape = 0;
 
