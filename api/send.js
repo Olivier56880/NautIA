@@ -22,7 +22,7 @@ async function recipientsForClient(client) {
   const data = rows[0];
   if (!data?.is_active) throw new Error('Client not active');
   const email = String(data.recipient_email || '').trim().toLowerCase();
-  if (data.recipient_email_confirmed && /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)
+  if (data.recipient_email_confirmed && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
     && email !== KERVENOA_EMAIL) recipients.push(email);
   return recipients;
 }
