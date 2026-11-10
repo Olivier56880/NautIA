@@ -1,8 +1,10 @@
-const ORIGIN = 'https://kervenoa.syrupybead4.chatgpt.site';
-const reply = (status, body) => new Response(JSON.stringify(body), {status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','Access-Control-Allow-Origin':ORIGIN,'Vary':'Origin'}});
+const ALLOWED_ORIGINS = new Set(['https://kervenoa.fr', 'https://kervenoa.syrupybead4.chatgpt.site']);
 export default {async fetch(request) {
- if(request.headers.get('origin')!==ORIGIN) return reply(403,{error:'Origine refusée.'});
- if(request.method==='OPTIONS') return new Response(null,{status:204,headers:{'Access-Control-Allow-Origin':ORIGIN,'Access-Control-Allow-Methods':'POST, OPTIONS','Access-Control-Allow-Headers':'Content-Type','Vary':'Origin'}});
+ const origin=request.headers.get('origin');
+ const allowed=ALLOWED_ORIGINS.has(origin);
+ const reply = (status, body) => new Response(JSON.stringify(body), {status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store',...(allowed?{'Access-Control-Allow-Origin':origin}:{}),'Vary':'Origin'}});
+ if(!allowed) return reply(403,{error:'Origine refusée.'});
+ if(request.method==='OPTIONS') return new Response(null,{status:204,headers:{'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Methods':'POST, OPTIONS','Access-Control-Allow-Headers':'Content-Type','Vary':'Origin'}});
  if(request.method!=='POST') return reply(405,{error:'Méthode non autorisée.'});
  let data;try {const text=await request.text();if(text.length>14000)return reply(413,{error:'Message trop long.'});data=JSON.parse(text);}catch{return reply(400,{error:'Données incorrectes.'});}
  if(!data||typeof data!=='object')return reply(400,{error:'Données incorrectes.'});
