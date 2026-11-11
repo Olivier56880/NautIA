@@ -22,7 +22,7 @@ async function recipientsForClient(client) {
   if (data.client_slug !== client || data.cc !== KERVENOA_EMAIL || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
     throw new Error('Invalid recipient configuration');
   if (email !== KERVENOA_EMAIL) recipients.push(email);
-  return recipients;
+  return {recipients, clientId: data.client_id};
 }
 const response = (status, body, origin) => new Response(JSON.stringify(body), {
   status,
@@ -88,9 +88,25 @@ export default {
       ...(problemes ? ['Problèmes signalés : ' + problemes] : [])
     ];
     let result;
+    let requestId;
+    let clientId;
     let recipientCount = 0;
     try {
-      const recipients = await recipientsForClient(client);
+      const resolved = await recipientsForClient(client);
+      const {recipients} = resolved;
+      clientId = resolved.clientId;
+      const registered = await fetch('https://obvzuccjxgjlaieghmxm.supabase.co/functions/v1/kervenoa-quote-context', {
+        method: 'POST', headers: {'Content-Type':'application/json','x-kervenoa-quote-key':process.env.KERVENOA_QUOTE_API_TOKEN},
+        body: JSON.stringify({mode:'register_request',client_id:clientId,request_data:{customer_name:nom,customer_email:email,
+          customer_phone:telephone,request_text:lines.join('\n')}}),
+        redirect:'error',signal:AbortSignal.timeout(7000)
+      });
+      if(!registered.ok) throw new Error('Request registration failed');
+      const dossier = await registered.json();
+      if(dossier.client_id !== clientId || typeof dossier.request_id !== 'string' ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(dossier.request_id)) throw new Error('Invalid request registration');
+      requestId = dossier.request_id;
+      lines.push('', 'Dossier Kervenoa : ' + requestId);
       recipientCount = recipients.length;
       result = await fetch('https://api.resend.com/emails', {
         method: 'POST',
@@ -114,7 +130,17 @@ export default {
     let accepted;
     try { accepted = await result.json(); } catch { return response(502, { error: "Réponse du service d’envoi illisible." }, origin); }
     if (typeof accepted.id !== 'string') return response(502, { error: "Envoi non confirmé par le service." }, origin);
-    console.info('Chatbot email accepted', JSON.stringify({client, recipient_count: recipientCount, email_id: accepted.id}));
-    return response(200, { ok: true }, origin);
+    let deliveryTracked = false;
+    try {
+      const tracked = await fetch('https://obvzuccjxgjlaieghmxm.supabase.co/functions/v1/kervenoa-quote-context', {
+        method:'POST',headers:{'Content-Type':'application/json','x-kervenoa-quote-key':process.env.KERVENOA_QUOTE_API_TOKEN},
+        body:JSON.stringify({mode:'record_request_delivery',client_id:clientId,request_id:requestId,provider_message_id:accepted.id}),
+        redirect:'error',signal:AbortSignal.timeout(7000)
+      });
+      deliveryTracked = tracked.ok;
+    } catch {}
+    if(!deliveryTracked) console.error('Request delivery tracking failed', requestId);
+    console.info('Chatbot email accepted' , JSON.stringify({client, recipient_count: recipientCount, email_id: accepted.id}));
+    return response(200, { ok: true, request_id: requestId, delivery_tracked: deliveryTracked }, origin);
   }
 };
